@@ -1,0 +1,66 @@
+[
+  {
+    "ownerEmail": "owner@demo.com",
+    "saccos": [
+      {
+        "saccoName": "Nairobi Express Sacco",
+        "routes": [
+          "Nairobi - Kisumu",
+          "Nairobi - Mombasa"
+        ],
+        "vehicles": [
+          {
+            "id": 1,
+            "name": "Bus 1",
+            "regNumber": "KAA 123A",
+            "capacity": 40,
+            "route": "Nairobi - Kisumu"
+          }
+        ]
+      },
+      {
+        "saccoName": "Kileton Sacco",
+        "routes": [
+          "Town - Kileleshwa - Lavington"
+        ],
+        "vehicles": []
+      },
+      {
+        "saccoName": "KILE KILE",
+        "route": "Town - Kileleshwa - Lavington",
+        "vehicles": [
+          {
+            "name": "Toyota Caravan",
+            "regNumber": "KBW 138P",
+            "capacity": 15,
+            "id": 1748643492971
+          },
+          {
+            "name": "Toyota Caravan",
+            "regNumber": "KDA 882P",
+            "capacity": 14,
+            "id": 1748643631815
+          },
+          {
+            "name": "Toyota Caravan",
+            "regNumber": "KCG 743R",
+            "capacity": 14,
+            "id": 1748643666128
+          }
+        ]
+      },
+      {
+        "saccoName": "Kiambu Sacco",
+        "route": "Town - Embassy - Ruaka - Kiambu",
+        "vehicles": [
+          {
+            "name": "Toyota Caravan",
+            "regNumber": "KAV 227G",
+            "capacity": 32,
+            "id": 1748643584379
+          }
+        ]
+      }
+    ]
+  }
+]
