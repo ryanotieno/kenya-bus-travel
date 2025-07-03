@@ -42,34 +42,16 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Check if user already exists
-    const existingUser = await userService.getByEmail(email)
-    if (existingUser) {
-      console.log("❌ User already exists:", email)
-      return NextResponse.json({ error: "User with this email already exists." }, { status: 400 })
-    }
-
-    console.log("✅ Creating user in database...")
-    
-    // Create user in database
-    const newUser = await userService.create({
-      firstName,
-      lastName,
-      email,
-      phone,
-      password, // In a real app, this should be hashed
-      role,
-    })
-
-    console.log("✅ User created:", { id: newUser.id, email: newUser.email, role: newUser.role })
-
-    // Handle role-specific data
-    if (role === "driver") {
-      // For drivers, we need to associate them with an existing sacco
-      // This would typically be done by an admin or through a different flow
-      console.log("🚗 Driver registration - would need sacco assignment logic")
-    } else if (role === "owner") {
+    // Handle registration based on role
+    if (role === "owner") {
       console.log("🏢 Owner registration - creating owner and company...")
+      
+      // Check if owner already exists
+      const existingOwner = await ownerService.getByEmail(email)
+      if (existingOwner) {
+        console.log("❌ Owner already exists:", email)
+        return NextResponse.json({ error: "Owner with this email already exists." }, { status: 400 })
+      }
       
       try {
         // Create owner in owners table
@@ -94,26 +76,75 @@ export async function POST(request: NextRequest) {
         })
 
         console.log("✅ Company created for owner:", company)
+        
+        console.log("✅ Owner registration successful for:", email)
+        
+        return NextResponse.json({ 
+          success: true, 
+          message: "Owner registration successful",
+          owner: {
+            id: newOwner.id,
+            name: newOwner.name,
+            email: newOwner.email
+          },
+          company: {
+            id: company.id,
+            name: company.name
+          }
+        })
       } catch (ownerError) {
         console.error("❌ Failed to create owner/company:", ownerError)
-        // Don't fail the registration if owner/company creation fails
-        // The user can still be created and owner/company can be added later
+        return NextResponse.json({ 
+          error: "Owner registration failed. Please try again.",
+          details: ownerError instanceof Error ? ownerError.message : "Unknown error"
+        }, { status: 500 })
       }
+    } else {
+      // For users and drivers, create in users table
+      console.log("👤 User/Driver registration - creating user...")
+      
+      // Check if user already exists
+      const existingUser = await userService.getByEmail(email)
+      if (existingUser) {
+        console.log("❌ User already exists:", email)
+        return NextResponse.json({ error: "User with this email already exists." }, { status: 400 })
+      }
+
+      console.log("✅ Creating user in database...")
+      
+      // Create user in database
+      const newUser = await userService.create({
+        firstName,
+        lastName,
+        email,
+        phone,
+        password, // In a real app, this should be hashed
+        role,
+      })
+
+      console.log("✅ User created:", { id: newUser.id, email: newUser.email, role: newUser.role })
+
+      // Handle role-specific data for drivers
+      if (role === "driver") {
+        // For drivers, we need to associate them with an existing sacco
+        // This would typically be done by an admin or through a different flow
+        console.log("🚗 Driver registration - would need sacco assignment logic")
+      }
+
+      console.log("✅ User registration successful for:", email)
+
+      return NextResponse.json({ 
+        success: true, 
+        message: "Registration successful",
+        user: {
+          id: newUser.id,
+          firstName: newUser.firstName,
+          lastName: newUser.lastName,
+          email: newUser.email,
+          role: newUser.role
+        }
+      })
     }
-
-    console.log("✅ Registration successful for:", email)
-
-    return NextResponse.json({ 
-      success: true, 
-      message: "Registration successful",
-      user: {
-        id: newUser.id,
-        firstName: newUser.firstName,
-        lastName: newUser.lastName,
-        email: newUser.email,
-        role: newUser.role
-      }
-    })
 
   } catch (err) {
     console.error("❌ Registration error:", err)
