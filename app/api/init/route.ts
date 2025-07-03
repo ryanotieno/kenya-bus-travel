@@ -295,7 +295,7 @@ export async function GET() {
       details: error instanceof Error ? error.message : "Unknown error",
       suggestions: [
         "Check if DATABASE_URL environment variable is set",
-        "For local development, make sure SQLite file is writable",
+        "For local development, make sure your PostgreSQL database is accessible",
         "For production, check Neon database connection"
       ]
     }, { status: 500 })

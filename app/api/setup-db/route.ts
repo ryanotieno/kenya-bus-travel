@@ -7,7 +7,7 @@ export async function GET() {
     console.log("🔧 Setting up database with sample data...")
     
     const isProduction = process.env.NODE_ENV === 'production'
-    console.log(`📊 Environment: ${isProduction ? 'Production (PostgreSQL)' : 'Development (SQLite)'}`)
+    console.log('📊 Environment: Production (PostgreSQL)')
     
     // Create tables using PostgreSQL syntax
     console.log("📋 Creating database tables...")
@@ -159,7 +159,7 @@ export async function GET() {
       success: true,
       message: "Database setup completed successfully",
       environment: isProduction ? 'production' : 'development',
-      database: isProduction ? 'PostgreSQL' : 'SQLite',
+      database: 'PostgreSQL',
       tables: ["users", "companies", "saccos", "vehicles", "sessions"],
       sampleData: {
         users: userCount,

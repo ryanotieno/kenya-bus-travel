@@ -9,7 +9,7 @@ export async function GET() {
     const isProduction = process.env.NODE_ENV === 'production'
     const status: any = {
       environment: isProduction ? 'production' : 'development',
-      database: isProduction ? 'PostgreSQL' : 'SQLite',
+      database: 'PostgreSQL',
       tables: {},
       data: {},
       errors: []
