@@ -16,6 +16,8 @@ export async function GET() {
       routes = []
     }
     
+    console.log("✅ Successfully handled routes table check")
+    
     // Transform database data to match dashboard format
     const transformedCompanies = companies.map((company: any) => {
       const companySaccos = saccos.filter((sacco: any) => sacco.companyId === company.id)
