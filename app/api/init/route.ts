@@ -1,4 +1,4 @@
-// Trigger Vercel redeploy: PostgreSQL syntax fix - force cache invalidation
+// VERSION 2.0 - PostgreSQL syntax fix - force complete rebuild
 import { NextResponse } from "next/server"
 import { db } from "@/lib/database"
 import { sql } from "drizzle-orm"
