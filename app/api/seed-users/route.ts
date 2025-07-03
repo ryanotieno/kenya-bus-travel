@@ -1,14 +1,16 @@
 import { NextResponse } from "next/server"
 import { userService } from "@/lib/db-service"
 import usersData from "@/data/users.json"
+import driversData from "@/data/drivers.json"
 
 export async function GET() {
   try {
-    console.log("Starting to seed users...")
+    console.log("Starting to seed users and drivers...")
     
     let seededCount = 0
     let skippedCount = 0
 
+    // Seed owners and regular users
     for (const userData of usersData) {
       try {
         // Check if user already exists
@@ -45,14 +47,45 @@ export async function GET() {
       }
     }
 
+    // Seed drivers
+    for (const driverData of driversData) {
+      try {
+        // Check if driver already exists
+        const existingDriver = await userService.getByEmail(driverData.email)
+        
+        if (existingDriver) {
+          console.log(`Driver ${driverData.email} already exists, skipping...`)
+          skippedCount++
+          continue
+        }
+
+        // Create new driver
+        const newDriver = await userService.create({
+          firstName: driverData.firstName,
+          lastName: driverData.lastName,
+          email: driverData.email,
+          phone: driverData.phone,
+          password: driverData.password,
+          role: "driver",
+          createdAt: new Date(driverData.registeredAt),
+          updatedAt: new Date()
+        })
+
+        console.log(`Created driver: ${newDriver.email} (${newDriver.role})`)
+        seededCount++
+      } catch (error) {
+        console.error(`Error creating driver ${driverData.email}:`, error)
+      }
+    }
+
     return NextResponse.json({ 
       success: true, 
-      message: `Users seeded successfully. Created: ${seededCount}, Skipped: ${skippedCount}`,
+      message: `Users and drivers seeded successfully. Created: ${seededCount}, Skipped: ${skippedCount}`,
       created: seededCount,
       skipped: skippedCount
     })
   } catch (error) {
-    console.error("Error seeding users:", error)
-    return NextResponse.json({ error: "Failed to seed users" }, { status: 500 })
+    console.error("Error seeding users and drivers:", error)
+    return NextResponse.json({ error: "Failed to seed users and drivers" }, { status: 500 })
   }
 } 
