@@ -4,53 +4,53 @@ import { sql } from "drizzle-orm"
 
 export async function GET() {
   try {
-    console.log("🧪 Testing database connectivity...")
+    console.log("🔍 Testing database connection and tables...")
     
-    // Test basic database connection
-    const result = await db.execute(sql`SELECT 1 as test`)
-    console.log("✅ Database connection successful:", result)
+    // Test 1: Check if we can connect
+    console.log("📊 Testing database connection...")
     
-    // Test if saccos table exists
-    try {
-      const saccosResult = await db.execute(sql`SELECT COUNT(*) as count FROM saccos`)
-      console.log("✅ Saccos table exists with count:", saccosResult[0]?.count || 0)
-    } catch (saccosError) {
-      console.log("❌ Saccos table error:", saccosError)
-    }
+    // Test 2: List all tables
+    console.log("📋 Checking existing tables...")
+    const tablesResult = await db.execute(sql`
+      SELECT table_name 
+      FROM information_schema.tables 
+      WHERE table_schema = 'public'
+      ORDER BY table_name
+    `)
     
-    // Test if users table exists
-    try {
-      const usersResult = await db.execute(sql`SELECT COUNT(*) as count FROM users`)
-      console.log("✅ Users table exists with count:", usersResult[0]?.count || 0)
-    } catch (usersError) {
-      console.log("❌ Users table error:", usersError)
-    }
+    const tables = tablesResult.map((row: any) => row.table_name)
+    console.log("✅ Existing tables:", tables)
     
-    // List all tables
-    try {
-      const tablesResult = await db.execute(sql`
-        SELECT table_name as name FROM information_schema.tables 
-        WHERE table_schema = 'public' 
-        ORDER BY table_name
-      `)
-      console.log("📋 Available tables:", tablesResult)
-    } catch (tablesError) {
-      console.log("❌ Could not list tables:", tablesError)
+    // Test 3: Check if routes table exists specifically
+    const routesExists = tables.includes('routes')
+    console.log(`🔍 Routes table exists: ${routesExists}`)
+    
+    // Test 4: If routes table exists, try to query it
+    let routesCount = 0
+    if (routesExists) {
+      try {
+        const routesResult = await db.execute(sql`SELECT COUNT(*) as count FROM routes`)
+        routesCount = routesResult[0]?.count || 0
+        console.log(`📊 Routes table has ${routesCount} records`)
+      } catch (error) {
+        console.log("❌ Error querying routes table:", error)
+      }
     }
     
     return NextResponse.json({
-      status: "success",
-      message: "Database test completed",
-      connection: "working",
-      timestamp: new Date().toISOString()
+      success: true,
+      tables,
+      routesExists,
+      routesCount,
+      message: "Database test completed"
     })
     
   } catch (error) {
     console.error("❌ Database test failed:", error)
     return NextResponse.json({
-      status: "error",
+      success: false,
       error: error instanceof Error ? error.message : "Unknown error",
-      timestamp: new Date().toISOString()
+      message: "Database test failed"
     }, { status: 500 })
   }
 } 
