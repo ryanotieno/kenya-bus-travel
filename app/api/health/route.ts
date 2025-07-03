@@ -1,39 +1,66 @@
 import { NextResponse } from "next/server"
-import { userService } from "@/lib/db-service"
+import { db } from "@/lib/database"
+import { sql } from "drizzle-orm"
 
 export async function GET() {
   try {
-    console.log("🏥 Health check - checking database...")
+    console.log("🏥 Health check with database status...")
     
-    // Try to access the users table
-    await userService.getAll()
+    // Test database connection
+    const connectionTest = await db.execute(sql`SELECT 1 as test`)
+    console.log("✅ Database connection successful")
     
-    console.log("✅ Database is healthy")
+    // Check what tables exist
+    let tables: string[] = []
+    let sessionsExists = false
+    let routesExists = false
     
-    return NextResponse.json({
-      status: "healthy",
-      database: "connected",
-      tables: "available",
-      timestamp: new Date().toISOString()
-    })
-  } catch (error) {
-    console.error("❌ Health check failed:", error)
-    
-    if (error instanceof Error && error.message.includes("no such table")) {
-      return NextResponse.json({
-        status: "unhealthy",
-        database: "connected",
-        tables: "missing",
-        error: "Database tables not initialized",
-        timestamp: new Date().toISOString()
-      }, { status: 503 })
+    try {
+      const tablesResult = await db.execute(sql`
+        SELECT table_name 
+        FROM information_schema.tables 
+        WHERE table_schema = 'public'
+        ORDER BY table_name
+      `)
+      
+      tables = tablesResult.map((row: any) => row.table_name)
+      sessionsExists = tables.includes('sessions')
+      routesExists = tables.includes('routes')
+      
+      console.log("📋 Available tables:", tables)
+    } catch (error) {
+      console.log("❌ Could not list tables:", error)
     }
     
     return NextResponse.json({
+      status: "healthy",
+      timestamp: new Date().toISOString(),
+      database: {
+        connected: true,
+        tables,
+        sessionsExists,
+        routesExists,
+        totalTables: tables.length
+      },
+      environment: process.env.NODE_ENV || 'development',
+      message: "Application is running with PostgreSQL database"
+    })
+    
+  } catch (error) {
+    console.error("❌ Health check failed:", error)
+    return NextResponse.json({
       status: "unhealthy",
-      database: "disconnected",
+      timestamp: new Date().toISOString(),
       error: error instanceof Error ? error.message : "Unknown error",
-      timestamp: new Date().toISOString()
-    }, { status: 503 })
+      database: {
+        connected: false,
+        tables: [],
+        sessionsExists: false,
+        routesExists: false,
+        totalTables: 0
+      },
+      environment: process.env.NODE_ENV || 'development',
+      message: "Application has database connection issues"
+    }, { status: 500 })
   }
 } 
