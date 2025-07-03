@@ -87,39 +87,63 @@ export async function GET() {
     
     // Insert users
     await db.execute(sql`
-      INSERT INTO users (id, first_name, last_name, email, phone, password, role) VALUES
-      (1, 'Charles', 'Otieno', 'otieno.charles@gmail.com', '+254700123456', 'password123', 'owner'),
-      (2, 'Ryan', 'Otieno', 'ryanotieno@gmail.com', '+254700123457', 'password1', 'driver'),
-      (3, 'John', 'Doe', 'john.doe@example.com', '+254700123458', 'password123', 'owner')
-      ON CONFLICT (id) DO NOTHING
+      INSERT INTO users (first_name, last_name, email, phone, password, role) VALUES
+      ('Charles', 'Otieno', 'otieno.charles@gmail.com', '+254700123456', 'password123', 'owner'),
+      ('Ryan', 'Otieno', 'ryanotieno@gmail.com', '+254700123457', 'password1', 'driver'),
+      ('John', 'Doe', 'john.doe@example.com', '+254700123458', 'password123', 'owner')
+      ON CONFLICT (email) DO NOTHING
     `)
     console.log("✅ Users inserted")
     
-    // Insert companies
-    await db.execute(sql`
-      INSERT INTO companies (id, name, business_license, address, phone, email, owner_id) VALUES
-      (1, 'Latema Transport Ltd', 'LIC001', 'Nairobi, Kenya', '+254700123456', 'info@latema.co.ke', 1),
-      (2, 'Kiragi Transport', 'LIC002', 'Kisumu, Kenya', '+254700123457', 'info@kiragi.co.ke', 3)
-      ON CONFLICT (id) DO NOTHING
-    `)
+    // Insert companies - we'll get the user IDs first
+    const charlesUser = await db.execute(sql`SELECT id FROM users WHERE email = 'otieno.charles@gmail.com'`)
+    const johnUser = await db.execute(sql`SELECT id FROM users WHERE email = 'john.doe@example.com'`)
+    
+    const charlesId = charlesUser[0]?.id
+    const johnId = johnUser[0]?.id
+    
+    if (charlesId && johnId) {
+      await db.execute(sql`
+        INSERT INTO companies (name, business_license, address, phone, email, owner_id) VALUES
+        ('Latema Transport Ltd', 'LIC001', 'Nairobi, Kenya', '+254700123456', 'info@latema.co.ke', ${charlesId}),
+        ('Kiragi Transport', 'LIC002', 'Kisumu, Kenya', '+254700123457', 'info@kiragi.co.ke', ${johnId})
+        ON CONFLICT (business_license) DO NOTHING
+      `)
+    }
     console.log("✅ Companies inserted")
     
-    // Insert saccos
-    await db.execute(sql`
-      INSERT INTO saccos (id, sacco_name, company_id, route) VALUES
-      (1, 'Latema Sacco', 1, 'Nairobi - Mombasa'),
-      (2, 'Kiragi Sacco', 2, 'Nairobi - Kisumu')
-      ON CONFLICT (id) DO NOTHING
-    `)
+    // Insert saccos - we'll get the company IDs first
+    const latemaCompany = await db.execute(sql`SELECT id FROM companies WHERE business_license = 'LIC001'`)
+    const kiragiCompany = await db.execute(sql`SELECT id FROM companies WHERE business_license = 'LIC002'`)
+    
+    const latemaId = latemaCompany[0]?.id
+    const kiragiId = kiragiCompany[0]?.id
+    
+    if (latemaId && kiragiId) {
+      await db.execute(sql`
+        INSERT INTO saccos (sacco_name, company_id, route) VALUES
+        ('Latema Sacco', ${latemaId}, 'Nairobi - Mombasa'),
+        ('Kiragi Sacco', ${kiragiId}, 'Nairobi - Kisumu')
+        ON CONFLICT (sacco_name) DO NOTHING
+      `)
+    }
     console.log("✅ Saccos inserted")
     
-    // Insert vehicles
-    await db.execute(sql`
-      INSERT INTO vehicles (id, name, reg_number, capacity, sacco_id, status) VALUES
-      (1, 'Latema Bus 1', 'KCA 123A', 45, 1, 'active'),
-      (2, 'Kiragi Bus 1', 'KCA 456B', 52, 2, 'active')
-      ON CONFLICT (id) DO NOTHING
-    `)
+    // Insert vehicles - we'll get the sacco IDs first
+    const latemaSacco = await db.execute(sql`SELECT id FROM saccos WHERE sacco_name = 'Latema Sacco'`)
+    const kiragiSacco = await db.execute(sql`SELECT id FROM saccos WHERE sacco_name = 'Kiragi Sacco'`)
+    
+    const latemaSaccoId = latemaSacco[0]?.id
+    const kiragiSaccoId = kiragiSacco[0]?.id
+    
+    if (latemaSaccoId && kiragiSaccoId) {
+      await db.execute(sql`
+        INSERT INTO vehicles (name, reg_number, capacity, sacco_id, status) VALUES
+        ('Latema Bus 1', 'KCA 123A', 45, ${latemaSaccoId}, 'active'),
+        ('Kiragi Bus 1', 'KCA 456B', 52, ${kiragiSaccoId}, 'active')
+        ON CONFLICT (reg_number) DO NOTHING
+      `)
+    }
     console.log("✅ Vehicles inserted")
     
     // Step 3: Verify setup
