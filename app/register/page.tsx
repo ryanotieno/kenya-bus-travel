@@ -152,6 +152,20 @@ export default function Register() {
     setIsLoading(true)
     
     try {
+      // Check database health first
+      console.log("🔍 Checking database health before registration...")
+      const healthRes = await fetch("/api/health")
+      const healthData = await healthRes.json()
+      
+      if (healthData.status === "unhealthy" && healthData.tables === "missing") {
+        console.log("🔧 Database tables missing, initializing...")
+        const initRes = await fetch("/api/init-database")
+        if (!initRes.ok) {
+          throw new Error("Failed to initialize database")
+        }
+        console.log("✅ Database initialized")
+      }
+      
       let payload: any = {
         firstName: form.firstName,
         lastName: form.lastName,
@@ -182,6 +196,8 @@ export default function Register() {
           break
       }
 
+      console.log("📝 Submitting registration payload:", payload)
+
       const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -189,6 +205,8 @@ export default function Register() {
       })
       
       const data = await res.json()
+      console.log("📨 Registration response:", data)
+      
       if (res.ok) {
         setStatusType("success")
         setStatus("Registration successful! Redirecting to login...")
@@ -202,6 +220,7 @@ export default function Register() {
         setIsLoading(false)
       }
     } catch (err) {
+      console.error("❌ Registration error:", err)
       setStatusType("error")
       setStatus("Registration failed. Please try again.")
       setIsLoading(false)

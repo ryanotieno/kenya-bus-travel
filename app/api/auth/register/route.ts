@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { userService, companyService, saccoService, vehicleService, routeService } from "@/lib/db-service"
+import { db } from "@/lib/database"
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,6 +13,33 @@ export async function POST(request: NextRequest) {
     if (!firstName || !lastName || !email || !phone || !password || !role) {
       console.log("❌ Missing required fields:", { firstName, lastName, email, phone, password: !!password, role })
       return NextResponse.json({ error: "Missing required fields." }, { status: 400 })
+    }
+
+    // Check if database tables exist, if not initialize them
+    try {
+      console.log("🔍 Checking if users table exists...")
+      await userService.getByEmail("test@example.com")
+      console.log("✅ Users table exists")
+    } catch (dbError) {
+      console.log("❌ Database tables missing, initializing...")
+      if (dbError instanceof Error && dbError.message.includes("no such table")) {
+        try {
+          // Initialize database tables
+          const initResponse = await fetch(`${request.nextUrl.origin}/api/init-database`)
+          if (!initResponse.ok) {
+            throw new Error("Failed to initialize database")
+          }
+          console.log("✅ Database initialized successfully")
+        } catch (initError) {
+          console.error("❌ Failed to initialize database:", initError)
+          return NextResponse.json({ 
+            error: "Database not available. Please try again later.",
+            details: "Database initialization failed"
+          }, { status: 503 })
+        }
+      } else {
+        throw dbError
+      }
     }
 
     // Check if user already exists
