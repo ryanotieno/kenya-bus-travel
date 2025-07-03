@@ -274,6 +274,29 @@ export const sessionService = {
     return result.changes > 0;
   },
 
+  async deleteByUserId(userId: number): Promise<number> {
+    const result = await db.delete(sessions).where(eq(sessions.userId, userId));
+    return result.changes;
+  },
+
+  async getByUserId(userId: number): Promise<Session[]> {
+    return await db.select().from(sessions).where(eq(sessions.userId, userId));
+  },
+
+  async updateLastActivity(token: string): Promise<boolean> {
+    const result = await db.update(sessions)
+      .set({ createdAt: new Date() }) // Using createdAt as lastActivity for now
+      .where(eq(sessions.token, token));
+    return result.changes > 0;
+  },
+
+  async updateExpiration(token: string, expiresAt: Date): Promise<boolean> {
+    const result = await db.update(sessions)
+      .set({ expiresAt })
+      .where(eq(sessions.token, token));
+    return result.changes > 0;
+  },
+
   async deleteExpired(): Promise<number> {
     const result = await db.delete(sessions)
       .where(sql`${sessions.expiresAt} < datetime('now')`);

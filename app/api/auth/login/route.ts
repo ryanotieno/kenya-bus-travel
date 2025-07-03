@@ -17,23 +17,29 @@ export async function POST(request: NextRequest) {
     // This bypasses database issues while we fix them
     if (email === "ryanotieno@gmail.com" && password === "password1") {
       console.log("✅ Using hardcoded driver login")
+      const userAgent = request.headers.get("user-agent") || "unknown"
+      const ipAddress = request.headers.get("x-forwarded-for") || "unknown"
+      
       await createSession({
         id: "1",
         name: "Ryan Otieno",
         email: "ryanotieno@gmail.com",
         role: "driver",
-      })
+      }, userAgent, ipAddress)
       return NextResponse.json({ success: true })
     }
     
     if (email === "otieno.charles@gmail.com" && password === "owner123") {
       console.log("✅ Using hardcoded owner login")
+      const userAgent = request.headers.get("user-agent") || "unknown"
+      const ipAddress = request.headers.get("x-forwarded-for") || "unknown"
+      
       await createSession({
         id: "2",
         name: "Charles Otieno",
         email: "otieno.charles@gmail.com",
         role: "owner",
-      })
+      }, userAgent, ipAddress)
       return NextResponse.json({ success: true })
     }
 
@@ -63,12 +69,15 @@ export async function POST(request: NextRequest) {
 
     console.log(`✅ Creating session for user ${user.email} (${user.role})`)
     
+    const userAgent = request.headers.get("user-agent") || "unknown"
+    const ipAddress = request.headers.get("x-forwarded-for") || "unknown"
+    
     await createSession({
       id: user.id.toString(),
       name: `${user.firstName} ${user.lastName}`,
       email: user.email,
       role: user.role,
-    })
+    }, userAgent, ipAddress)
 
     console.log(`✅ Session created successfully`)
     return NextResponse.json({ success: true })
