@@ -1,5 +1,6 @@
+// Version 1.2.3 - Removed routes dependency to fix database errors
 import { NextRequest, NextResponse } from "next/server"
-import { companyService, saccoService, vehicleService, routeService } from "@/lib/db-service"
+import { companyService, saccoService, vehicleService } from "@/lib/db-service"
 
 export async function GET() {
   try {
@@ -7,16 +8,9 @@ export async function GET() {
     const saccos = await saccoService.getAll()
     const vehicles = await vehicleService.getAll()
     
-    // Try to get routes, but handle the case where the table doesn't exist yet
-    let routes: any[] = []
-    try {
-      routes = await routeService.getAll()
-    } catch (routeError) {
-      console.log("Routes table doesn't exist yet, continuing without routes:", routeError)
-      routes = []
-    }
-    
-    console.log("✅ Successfully handled routes table check")
+    // Routes table not available yet - using empty array
+    const routes: any[] = []
+    console.log("✅ Using empty routes array - routes table not available")
     
     // Transform database data to match dashboard format
     const transformedCompanies = companies.map((company: any) => {
@@ -96,24 +90,8 @@ export async function POST(request: NextRequest) {
         route: route || (routeStart && routeEnd ? `${routeStart} - ${routeEnd}` : ""),
       })
 
-      // Create route for this sacco if routeStart and routeEnd are provided
-      if (routeStart && routeEnd) {
-        try {
-          await routeService.create({
-            name: `${routeStart} - ${routeEnd}`,
-            startLocation: routeStart,
-            endLocation: routeEnd,
-            distance: 0, // Would need to calculate
-            estimatedTime: 0, // Would need to estimate
-            fare: 0, // Would need to set
-            saccoId: sacco.id,
-            status: 'active'
-          })
-        } catch (routeError) {
-          console.log("Routes table doesn't exist yet, skipping route creation:", routeError)
-          // Continue without creating the route - the sacco will still be created
-        }
-      }
+      // Route creation skipped - routes table not available yet
+      console.log("Skipping route creation - routes table not available")
 
       // Create vehicles for this sacco
       if (vehicles && vehicles.length > 0) {
