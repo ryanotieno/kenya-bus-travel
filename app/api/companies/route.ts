@@ -57,45 +57,50 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { ownerEmail, saccoName, route, routeStart, routeEnd, busStops, vehicles } = body
+    const { 
+      ownerName,
+      name, 
+      businessLicense, 
+      address, 
+      phone, 
+      email
+    } = body
     
-    if (!ownerEmail || !saccoName) {
-      return NextResponse.json({ error: "Invalid data." }, { status: 400 })
+    if (!ownerName || !name) {
+      return NextResponse.json({ 
+        success: false, 
+        error: "Owner name and company name are required." 
+      }, { status: 400 })
     }
 
-    // Find or create company for owner
-    let companies = await companyService.getAll()
-    let company = companies.find((c: any) => c.email === ownerEmail)
-    
-    if (!company) {
-      company = await companyService.create({
-        name: ownerEmail.split('@')[0] + " Company",
-        businessLicense: "N/A",
-        address: "N/A",
-        phone: "",
-        email: ownerEmail,
-        ownerId: null,
-      })
-    }
+    // Create new company
+    const newCompany = await companyService.create({
+      name,
+      businessLicense,
+      address,
+      phone,
+      email,
+      ownerName,
+    })
 
     // Check if sacco already exists
-    let saccos = await saccoService.getByCompanyId(company.id)
-    let sacco = saccos.find((s: any) => s.saccoName === saccoName)
+    let saccos = await saccoService.getByCompanyId(newCompany.id)
+    let sacco = saccos.find((s: any) => s.saccoName === body.saccoName)
     
     if (!sacco) {
       // Create new sacco
       sacco = await saccoService.create({
-        saccoName,
-        companyId: company.id,
-        route: route || (routeStart && routeEnd ? `${routeStart} - ${routeEnd}` : ""),
+        saccoName: body.saccoName,
+        companyId: newCompany.id,
+        route: body.route || (body.routeStart && body.routeEnd ? `${body.routeStart} - ${body.routeEnd}` : ""),
       })
 
       // Route creation skipped - routes table not available yet
       console.log("Skipping route creation - routes table not available")
 
       // Create vehicles for this sacco
-      if (vehicles && vehicles.length > 0) {
-        for (const vehicleData of vehicles) {
+      if (body.vehicles && body.vehicles.length > 0) {
+        for (const vehicleData of body.vehicles) {
           console.log('Creating new vehicle:', vehicleData)
           const newVehicle = await vehicleService.create({
             name: vehicleData.name,
@@ -109,14 +114,14 @@ export async function POST(request: NextRequest) {
       }
     } else if (sacco) {
       // Update existing sacco - handle vehicle updates
-      if (vehicles && vehicles.length > 0) {
+      if (body.vehicles && body.vehicles.length > 0) {
         // Get existing vehicles for this sacco
         const existingVehicles = await vehicleService.getAll()
         const saccoVehicles = existingVehicles.filter((v: any) => v.saccoId === (sacco as any).id)
         
         // Remove vehicles that are no longer in the list
         for (const existingVehicle of saccoVehicles) {
-          const stillExists = vehicles.find((v: any) => v.id === existingVehicle.id)
+          const stillExists = body.vehicles.find((v: any) => v.id === existingVehicle.id)
           if (!stillExists) {
             // Note: We'd need a delete method in vehicleService
             console.log("Would delete vehicle:", existingVehicle.id)
@@ -124,7 +129,7 @@ export async function POST(request: NextRequest) {
         }
         
         // Add new vehicles
-        for (const vehicleData of vehicles) {
+        for (const vehicleData of body.vehicles) {
           console.log('Processing vehicle:', vehicleData)
           if (!vehicleData.id || vehicleData.id.toString().startsWith('temp')) {
             // This is a new vehicle
@@ -142,7 +147,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({ success: true, company, sacco })
+    return NextResponse.json({ success: true, company: newCompany, sacco })
   } catch (err) {
     console.error("Error saving company:", err)
     return NextResponse.json({ error: "Could not save company data." }, { status: 500 })

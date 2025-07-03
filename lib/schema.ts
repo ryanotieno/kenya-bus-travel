@@ -14,6 +14,16 @@ export const users = pgTable('users', {
   updatedAt: timestamp('updated_at').defaultNow(),
 });
 
+// Owners table
+export const owners = pgTable('owners', {
+  id: serial('id').primaryKey(),
+  name: text('name').notNull().unique(),
+  email: text('email').notNull().unique(),
+  phone: text('phone'),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+});
+
 // Companies table
 export const companies = pgTable('companies', {
   id: serial('id').primaryKey(),
@@ -22,7 +32,7 @@ export const companies = pgTable('companies', {
   address: text('address').notNull(),
   phone: text('phone'),
   email: text('email'),
-  ownerId: integer('owner_id').references(() => users.id),
+  ownerName: text('owner_name').references(() => owners.name),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 });
@@ -36,6 +46,7 @@ export const saccos = pgTable('saccos', {
   routeStart: text('route_start'),
   routeEnd: text('route_end'),
   busStops: text('bus_stops'), // JSON string of bus stops
+  ownerName: text('owner_name').references(() => owners.name),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 });

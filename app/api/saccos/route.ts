@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     const { 
-      ownerEmail, 
+      ownerName,
       saccoName, 
       routeStart, 
       routeEnd, 
@@ -57,28 +57,28 @@ export async function POST(request: NextRequest) {
       phone
     } = body
     
-    console.log("📝 Registering new sacco:", { ownerEmail, saccoName, routeStart, routeEnd })
+    console.log("📝 Registering new sacco:", { ownerName, saccoName, routeStart, routeEnd })
     
-    if (!ownerEmail || !saccoName) {
+    if (!ownerName || !saccoName) {
       return NextResponse.json({ 
         success: false, 
-        error: "Owner email and sacco name are required." 
+        error: "Owner name and sacco name are required." 
       }, { status: 400 })
     }
 
     // Find or create company for owner
     let companies = await companyService.getAll()
-    let company = companies.find((c: any) => c.email === ownerEmail)
+    let company = companies.find((c: any) => c.ownerName === ownerName)
     
     if (!company) {
-      console.log("🏢 Creating new company for owner:", ownerEmail)
+      console.log("🏢 Creating new company for owner:", ownerName)
       company = await companyService.create({
-        name: companyName || `${ownerEmail.split('@')[0]} Transport Ltd`,
+        name: companyName || `${ownerName} Transport Ltd`,
         businessLicense: businessLicense || "PENDING",
         address: address || "N/A",
         phone: phone || "",
-        email: ownerEmail,
-        ownerId: null,
+        email: "",
+        ownerName: ownerName,
       })
       console.log("✅ Created company:", company)
     }
@@ -103,6 +103,7 @@ export async function POST(request: NextRequest) {
       routeStart: routeStart || null,
       routeEnd: routeEnd || null,
       busStops: busStops || null,
+      ownerName: ownerName,
     })
     
     console.log("✅ Created sacco:", newSacco)

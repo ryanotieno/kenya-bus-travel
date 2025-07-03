@@ -118,13 +118,13 @@ export default function OwnerDashboard() {
   const saccoRoute: string = selectedSacco ? selectedSacco.route : ""
 
   // Save sacco to API
-  const saveSacco = async (saccoName: string, routeStart: string, routeEnd: string, busStops: string[], vehicles: any[]) => {
-    if (!session?.email) return
+  const saveSacco = async (saccoName: string, routeStart: string, routeEnd: string, busStops: string[], vehicles: any[], ownerName: string) => {
+    if (!ownerName) return
     
     const route = `${routeStart} - ${routeEnd}`
     
     console.log('Saving sacco:', {
-      ownerEmail: session.email,
+      ownerName,
       saccoName,
       route,
       routeStart,
@@ -138,7 +138,7 @@ export default function OwnerDashboard() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ownerEmail: session.email,
+          ownerName,
           saccoName,
           routeStart,
           routeEnd,
@@ -190,7 +190,8 @@ export default function OwnerDashboard() {
         saccoForm.routeStart.trim(), 
         saccoForm.routeEnd.trim(), 
         busStops, 
-        []
+        [],
+        session.name
       )
       
       if (success) {
@@ -241,7 +242,7 @@ export default function OwnerDashboard() {
     }
     setVehicleForm({ name: "", regNumber: "", capacity: 30 })
     console.log('Adding/editing vehicle with vehicles:', newVehicles)
-    await saveSacco(selectedSacco.saccoName, selectedSacco.routeStart, selectedSacco.routeEnd, selectedSacco.busStops, newVehicles)
+    await saveSacco(selectedSacco.saccoName, selectedSacco.routeStart, selectedSacco.routeEnd, selectedSacco.busStops, newVehicles, session.name)
   }
   const handleEditVehicle = (id: number) => {
     const v = vehicles.find((v: any) => v.id === id)
@@ -255,7 +256,7 @@ export default function OwnerDashboard() {
     const newVehicles = vehicles.filter((v: any) => v.id !== id)
     setVehicleForm({ name: "", regNumber: "", capacity: 30 })
     setEditId(null)
-    await saveSacco(selectedSacco.saccoName, selectedSacco.routeStart, selectedSacco.routeEnd, selectedSacco.busStops, newVehicles)
+    await saveSacco(selectedSacco.saccoName, selectedSacco.routeStart, selectedSacco.routeEnd, selectedSacco.busStops, newVehicles, session.name)
   }
 
   if (loading) {
