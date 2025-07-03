@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { saccoService, companyService, vehicleService } from "@/lib/db-service"
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     console.log("🔍 Fetching saccos from database...")
     
@@ -38,34 +38,73 @@ export async function GET() {
   } catch (error) {
     console.error("❌ Error fetching saccos:", error)
     
-    // If database tables don't exist, return sample data
+    // If database tables don't exist, try to initialize them
     if (error instanceof Error && error.message.includes("no such table")) {
+      console.log("🔧 Saccos table missing, attempting database initialization...")
+      
+      try {
+        // Try to initialize database
+        const initResponse = await fetch(`${request.nextUrl.origin}/api/init-database`)
+        if (initResponse.ok) {
+          console.log("✅ Database initialized, retrying saccos fetch...")
+          // Retry fetching saccos after initialization
+          const retrySaccos = await saccoService.getAll()
+          return NextResponse.json(retrySaccos)
+        }
+      } catch (initError) {
+        console.error("❌ Failed to initialize database:", initError)
+      }
+      
       console.log("📝 Returning sample saccos data")
       
       const sampleSaccos = [
         {
           id: 1,
           saccoName: "Latema Sacco",
-          companyId: 1,
           route: "Nairobi - Mombasa",
-          createdAt: new Date(),
-          updatedAt: new Date()
+          companyName: "Latema Transport Ltd",
+          companyEmail: "info@latema.co.ke",
+          vehicles: [
+            {
+              id: 1,
+              name: "Latema Bus 1",
+              regNumber: "KCA 123A",
+              capacity: 45,
+              status: "active"
+            }
+          ]
         },
         {
           id: 2,
           saccoName: "Kiragi Sacco", 
-          companyId: 2,
           route: "Nairobi - Kisumu",
-          createdAt: new Date(),
-          updatedAt: new Date()
+          companyName: "Kiragi Transport",
+          companyEmail: "info@kiragi.co.ke",
+          vehicles: [
+            {
+              id: 2,
+              name: "Kiragi Bus 1",
+              regNumber: "KCA 456B",
+              capacity: 52,
+              status: "active"
+            }
+          ]
         },
         {
           id: 3,
           saccoName: "KILE KILE",
-          companyId: 3,
           route: "Nairobi - Nakuru",
-          createdAt: new Date(),
-          updatedAt: new Date()
+          companyName: "Kile Kile Transport",
+          companyEmail: "info@kilekile.co.ke",
+          vehicles: [
+            {
+              id: 3,
+              name: "Kile Kile Bus 1",
+              regNumber: "KCA 789C",
+              capacity: 48,
+              status: "active"
+            }
+          ]
         }
       ]
       

@@ -95,6 +95,27 @@ export default function Register() {
         setSaccos(saccos)
       } catch (error) {
         console.error('❌ Error fetching saccos:', error)
+        
+        // If it's a database table error, try to initialize database first
+        if (error instanceof Error && error.message.includes("no such table")) {
+          try {
+            console.log("🔧 Database tables missing, attempting initialization...")
+            const initRes = await fetch("/api/init-database")
+            if (initRes.ok) {
+              console.log("✅ Database initialized, retrying saccos fetch...")
+              const retryRes = await fetch("/api/saccos")
+              if (retryRes.ok) {
+                const retrySaccos = await retryRes.json()
+                console.log("✅ Saccos fetched after initialization:", retrySaccos)
+                setSaccos(retrySaccos)
+                return
+              }
+            }
+          } catch (initError) {
+            console.error("❌ Database initialization failed:", initError)
+          }
+        }
+        
         // Fallback to companies API if saccos API fails
         try {
           console.log("🔄 Trying companies API fallback...")
