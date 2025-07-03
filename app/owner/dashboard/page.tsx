@@ -84,16 +84,29 @@ export default function OwnerDashboard() {
 
   // Fetch companies function
   const fetchCompanies = async () => {
-    if (!session?.email) return
+    if (!session?.email) {
+      console.log('No session email found')
+      return
+    }
     
     try {
       console.log('Fetching companies for email:', session.email)
-      const res = await fetch("/api/companies")
-      const all = await res.json()
-      console.log('All companies:', all)
-      const mine = all.filter((c: any) => c.ownerEmail === session.email)
+      console.log('Session data:', session)
+      
+      const res = await fetch("/api/companies/my")
+      console.log('Response status:', res.status)
+      
+      if (!res.ok) {
+        console.error('Failed to fetch companies:', res.status)
+        const errorText = await res.text()
+        console.error('Error response:', errorText)
+        return
+      }
+      
+      const mine = await res.json()
       console.log('My companies:', mine)
       setCompanies(mine)
+      
       if (mine.length > 0 && mine[0].saccos.length > 0) {
         setSelectedSaccoIdx(0)
       }
@@ -156,6 +169,7 @@ export default function OwnerDashboard() {
       if (result.success) {
         // Auto-refresh the data
         await fetchCompanies()
+        console.log('✅ Sacco saved successfully, data refreshed')
         return true
       } else {
         console.error('Failed to save sacco:', result.error)
