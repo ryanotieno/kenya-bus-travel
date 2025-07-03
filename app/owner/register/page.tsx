@@ -3,7 +3,15 @@
 import { useState } from "react";
 
 export default function OwnerRegisterPage() {
-  const [form, setForm] = useState({ name: "", email: "", phone: "" });
+  const [form, setForm] = useState({ 
+    name: "", 
+    email: "", 
+    phone: "", 
+    password: "",
+    companyName: "",
+    businessLicense: "",
+    address: ""
+  });
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -26,7 +34,15 @@ export default function OwnerRegisterPage() {
       const data = await res.json();
       if (data.success) {
         setMessage("Owner registered successfully!");
-        setForm({ name: "", email: "", phone: "" });
+        setForm({ 
+          name: "", 
+          email: "", 
+          phone: "", 
+          password: "",
+          companyName: "",
+          businessLicense: "",
+          address: ""
+        });
       } else {
         setError(data.error || "Failed to register owner.");
       }
@@ -70,6 +86,50 @@ export default function OwnerRegisterPage() {
             name="phone"
             value={form.phone}
             onChange={handleChange}
+            className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+          />
+        </div>
+        <div>
+          <label className="block text-gray-700 mb-1">Password</label>
+          <input
+            type="password"
+            name="password"
+            value={form.password}
+            onChange={handleChange}
+            required
+            className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+          />
+        </div>
+        <div>
+          <label className="block text-gray-700 mb-1">Company Name</label>
+          <input
+            type="text"
+            name="companyName"
+            value={form.companyName}
+            onChange={handleChange}
+            required
+            className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+          />
+        </div>
+        <div>
+          <label className="block text-gray-700 mb-1">Business License</label>
+          <input
+            type="text"
+            name="businessLicense"
+            value={form.businessLicense}
+            onChange={handleChange}
+            required
+            className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+          />
+        </div>
+        <div>
+          <label className="block text-gray-700 mb-1">Address</label>
+          <input
+            type="text"
+            name="address"
+            value={form.address}
+            onChange={handleChange}
+            required
             className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
           />
         </div>

@@ -1,6 +1,7 @@
 import { db } from './database';
 import { 
   users, 
+  owners,
   companies, 
   saccos, 
   vehicles, 
@@ -13,6 +14,8 @@ import {
   sessions,
   type User,
   type NewUser,
+  type Owner,
+  type NewOwner,
   type Company,
   type NewCompany,
   type Sacco,
@@ -73,6 +76,53 @@ export const userService = {
   // Delete user
   async delete(id: number): Promise<boolean> {
     const result = await db.delete(users).where(eq(users.id, id));
+    return result.changes > 0;
+  }
+};
+
+// Owner operations
+export const ownerService = {
+  // Create a new owner
+  async create(owner: NewOwner): Promise<Owner> {
+    const result = await db.insert(owners).values(owner).returning();
+    return result[0];
+  },
+
+  // Get owner by email
+  async getByEmail(email: string): Promise<Owner | null> {
+    const result = await db.select().from(owners).where(eq(owners.email, email)).limit(1);
+    return result[0] || null;
+  },
+
+  // Get owner by name
+  async getByName(name: string): Promise<Owner | null> {
+    const result = await db.select().from(owners).where(eq(owners.name, name)).limit(1);
+    return result[0] || null;
+  },
+
+  // Get owner by ID
+  async getById(id: number): Promise<Owner | null> {
+    const result = await db.select().from(owners).where(eq(owners.id, id)).limit(1);
+    return result[0] || null;
+  },
+
+  // Get all owners
+  async getAll(): Promise<Owner[]> {
+    return await db.select().from(owners).orderBy(asc(owners.createdAt));
+  },
+
+  // Update owner
+  async update(id: number, updates: Partial<NewOwner>): Promise<Owner | null> {
+    const result = await db.update(owners)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(owners.id, id))
+      .returning();
+    return result[0] || null;
+  },
+
+  // Delete owner
+  async delete(id: number): Promise<boolean> {
+    const result = await db.delete(owners).where(eq(owners.id, id));
     return result.changes > 0;
   }
 };

@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createSession } from "@/lib/auth"
-import { userService } from "@/lib/db-service"
+import { userService, ownerService } from "@/lib/db-service"
 
 export async function POST(request: NextRequest) {
   try {
@@ -15,10 +15,31 @@ export async function POST(request: NextRequest) {
 
 
 
-    // Check credentials against the database
-    const user = await userService.getByEmail(email)
+    // Check credentials against the database - try users table first, then owners table
+    let user = await userService.getByEmail(email)
+    let isOwner = false
     
-    console.log(`👤 User lookup result:`, user ? `Found user ${user.email} (${user.role})` : "User not found")
+    if (!user) {
+      // Check owners table
+      const owner = await ownerService.getByEmail(email)
+      if (owner) {
+        isOwner = true
+        // Convert owner to user format for session
+        user = {
+          id: owner.id,
+          firstName: owner.name.split(' ')[0] || owner.name,
+          lastName: owner.name.split(' ').slice(1).join(' ') || '',
+          email: owner.email,
+          phone: owner.phone,
+          password: owner.password,
+          role: 'owner' as const,
+          createdAt: owner.createdAt,
+          updatedAt: owner.updatedAt
+        }
+      }
+    }
+    
+    console.log(`👤 User lookup result:`, user ? `Found ${isOwner ? 'owner' : 'user'} ${user.email} (${user.role})` : "User not found")
 
     if (!user) {
       console.log("❌ User not found in database")
@@ -39,7 +60,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid credentials" }, { status: 401 })
     }
 
-    console.log(`✅ Creating session for user ${user.email} (${user.role})`)
+    console.log(`✅ Creating session for ${isOwner ? 'owner' : 'user'} ${user.email} (${user.role})`)
     
     const userAgent = request.headers.get("user-agent") || "unknown"
     const ipAddress = request.headers.get("x-forwarded-for") || "unknown"

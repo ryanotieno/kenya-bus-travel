@@ -20,6 +20,7 @@ export const owners = pgTable('owners', {
   name: text('name').notNull().unique(),
   email: text('email').notNull().unique(),
   phone: text('phone'),
+  password: text('password').notNull(),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 });
@@ -161,6 +162,8 @@ export const sessions = pgTable('sessions', {
 // Export types
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
+export type Owner = typeof owners.$inferSelect;
+export type NewOwner = typeof owners.$inferInsert;
 export type Company = typeof companies.$inferSelect;
 export type NewCompany = typeof companies.$inferInsert;
 export type Sacco = typeof saccos.$inferSelect;

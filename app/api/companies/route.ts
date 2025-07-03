@@ -1,10 +1,11 @@
-// Version 1.2.3 - Removed routes dependency to fix database errors
+// Version 1.2.4 - Updated to use owners table instead of users table
 import { NextRequest, NextResponse } from "next/server"
-import { companyService, saccoService, vehicleService } from "@/lib/db-service"
+import { companyService, ownerService, saccoService, vehicleService } from "@/lib/db-service"
 
 export async function GET() {
   try {
     const companies = await companyService.getAll()
+    const owners = await ownerService.getAll()
     const saccos = await saccoService.getAll()
     const vehicles = await vehicleService.getAll()
     
@@ -14,11 +15,13 @@ export async function GET() {
     
     // Transform database data to match dashboard format
     const transformedCompanies = companies.map((company: any) => {
+      // Find the owner for this company
+      const owner = owners.find((owner: any) => owner.name === company.ownerName)
       const companySaccos = saccos.filter((sacco: any) => sacco.companyId === company.id)
       
       return {
-        ownerEmail: company.email,
-        ownerName: company.name,
+        ownerEmail: owner?.email || company.email,
+        ownerName: owner?.name || company.ownerName,
         companyName: company.name,
         saccos: companySaccos.map((sacco: any) => {
           const saccoVehicles = vehicles.filter((vehicle: any) => vehicle.saccoId === sacco.id)
@@ -53,7 +56,7 @@ export async function GET() {
   }
 }
 
-// POST body: { ownerEmail, saccoName, route, routeStart, routeEnd, busStops, vehicles }
+// POST body: { ownerName, name, businessLicense, address, phone, email, saccoName, route, routeStart, routeEnd, busStops, vehicles }
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
@@ -63,7 +66,8 @@ export async function POST(request: NextRequest) {
       businessLicense, 
       address, 
       phone, 
-      email
+      email,
+      password
     } = body
     
     if (!ownerName || !name) {
@@ -73,6 +77,25 @@ export async function POST(request: NextRequest) {
       }, { status: 400 })
     }
 
+    // Check if owner already exists, if not create one
+    let owner = await ownerService.getByName(ownerName)
+    if (!owner) {
+      if (!email || !password) {
+        return NextResponse.json({ 
+          success: false, 
+          error: "Email and password are required to create a new owner." 
+        }, { status: 400 })
+      }
+      
+      owner = await ownerService.create({
+        name: ownerName,
+        email: email,
+        phone: phone,
+        password: password,
+      })
+      console.log("✅ Created new owner:", owner)
+    }
+
     // Create new company
     const newCompany = await companyService.create({
       name,
@@ -80,7 +103,7 @@ export async function POST(request: NextRequest) {
       address,
       phone,
       email,
-      ownerName,
+      ownerName: owner.name,
     })
 
     // Check if sacco already exists
@@ -147,7 +170,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({ success: true, company: newCompany, sacco })
+    return NextResponse.json({ success: true, company: newCompany, owner, sacco })
   } catch (err) {
     console.error("Error saving company:", err)
     return NextResponse.json({ error: "Could not save company data." }, { status: 500 })

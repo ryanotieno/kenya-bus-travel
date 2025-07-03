@@ -1,32 +1,30 @@
 import { NextResponse } from "next/server"
-import { userService, companyService } from "@/lib/db-service"
+import { userService, ownerService, companyService } from "@/lib/db-service"
 
 export async function GET() {
   try {
-    console.log("🧪 Testing registration system...")
+    console.log("🧪 Testing new owner registration system...")
     
-    // Test user creation
-    const testUser = {
-      firstName: "Test",
-      lastName: "Owner",
+    // Test owner creation
+    const testOwner = {
+      name: "Test Owner",
       email: "test.owner@example.com",
       phone: "1234567890",
-      password: "testpass123",
-      role: "owner" as const
+      password: "testpass123"
     }
 
-    console.log("📝 Testing user creation...")
+    console.log("📝 Testing owner creation...")
     
-    // Check if test user already exists
-    const existingUser = await userService.getByEmail(testUser.email)
-    if (existingUser) {
-      console.log("⚠️ Test user already exists, deleting...")
-      await userService.delete(existingUser.id)
+    // Check if test owner already exists
+    const existingOwner = await ownerService.getByEmail(testOwner.email)
+    if (existingOwner) {
+      console.log("⚠️ Test owner already exists, deleting...")
+      await ownerService.delete(existingOwner.id)
     }
 
-    // Create test user
-    const newUser = await userService.create(testUser)
-    console.log("✅ Test user created:", { id: newUser.id, email: newUser.email, role: newUser.role })
+    // Create test owner
+    const newOwner = await ownerService.create(testOwner)
+    console.log("✅ Test owner created:", { id: newOwner.id, email: newOwner.email, name: newOwner.name })
 
     // Test company creation
     console.log("🏢 Testing company creation...")
@@ -36,7 +34,7 @@ export async function GET() {
       address: "Test Address",
       phone: "1234567890",
       email: "test@company.com",
-      ownerId: newUser.id
+      ownerName: newOwner.name
     }
 
     const newCompany = await companyService.create(testCompany)
@@ -44,13 +42,13 @@ export async function GET() {
 
     // Clean up test data
     console.log("🧹 Cleaning up test data...")
-    await userService.delete(newUser.id)
+    await ownerService.delete(newOwner.id)
     
     return NextResponse.json({
       success: true,
-      message: "Registration system is working properly",
+      message: "New owner registration system is working properly",
       tests: {
-        userCreation: "✅ Passed",
+        ownerCreation: "✅ Passed",
         companyCreation: "✅ Passed",
         cleanup: "✅ Passed"
       }

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { userService, companyService, saccoService, vehicleService, routeService } from "@/lib/db-service"
+import { userService, ownerService, companyService, saccoService, vehicleService, routeService } from "@/lib/db-service"
 import { db } from "@/lib/database"
 
 export async function POST(request: NextRequest) {
@@ -69,9 +69,20 @@ export async function POST(request: NextRequest) {
       // This would typically be done by an admin or through a different flow
       console.log("🚗 Driver registration - would need sacco assignment logic")
     } else if (role === "owner") {
-      console.log("🏢 Owner registration - creating company...")
+      console.log("🏢 Owner registration - creating owner and company...")
       
       try {
+        // Create owner in owners table
+        const ownerName = `${firstName} ${lastName}`
+        const newOwner = await ownerService.create({
+          name: ownerName,
+          email: email,
+          phone: phone,
+          password: password,
+        })
+
+        console.log("✅ Owner created:", { id: newOwner.id, name: newOwner.name })
+
         // Create company for owner
         const company = await companyService.create({
           name: additionalData.companyName || `${firstName} ${lastName} Company`,
@@ -79,14 +90,14 @@ export async function POST(request: NextRequest) {
           address: additionalData.address || "N/A",
           phone: phone,
           email: email,
-          ownerId: newUser.id,
+          ownerName: ownerName,
         })
 
         console.log("✅ Company created for owner:", company)
-      } catch (companyError) {
-        console.error("❌ Failed to create company:", companyError)
-        // Don't fail the registration if company creation fails
-        // The user can still be created and company can be added later
+      } catch (ownerError) {
+        console.error("❌ Failed to create owner/company:", ownerError)
+        // Don't fail the registration if owner/company creation fails
+        // The user can still be created and owner/company can be added later
       }
     }
 
