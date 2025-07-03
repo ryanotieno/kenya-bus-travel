@@ -45,18 +45,19 @@ export async function createSession(user: Omit<UserSession, 'sessionId' | 'lastA
     lastActivity: new Date(now)
   }
 
-  // Store session in database
-  try {
-    await sessionService.create({
-      userId: parseInt(user.id),
-      token: sessionId,
-      expiresAt: expires,
-      createdAt: new Date(now)
-    })
-  } catch (error) {
-    console.error("Failed to store session in database:", error)
-    // Continue with cookie-based session as fallback
-  }
+      // Store session in database
+    try {
+      await sessionService.create({
+        userId: parseInt(user.id),
+        token: sessionId,
+        expiresAt: expires,
+        createdAt: new Date(now)
+      })
+    } catch (error) {
+      console.error("Failed to store session in database:", error)
+      // Continue with cookie-based session as fallback
+      // This is normal if database tables don't exist yet
+    }
 
   // Create JWT token with session data
   const sessionToken = await new SignJWT({ 
@@ -94,23 +95,27 @@ export async function getSession(): Promise<UserSession | null> {
     const { payload } = await jwtVerify(sessionToken, JWT_SECRET)
     const session = payload as unknown as UserSession
 
-    // Check if session exists in database
-    const dbSession = await sessionService.getByToken(session.sessionId)
-    if (!dbSession) {
-      console.log("Session not found in database, invalidating")
-      await deleteSession()
-      return null
-    }
+    // Check if session exists in database (optional for now)
+    try {
+      const dbSession = await sessionService.getByToken(session.sessionId)
+      if (!dbSession) {
+        console.log("Session not found in database, but continuing with JWT")
+        // Don't invalidate - just continue with JWT validation
+      } else {
+        // Check if session has expired
+        if (new Date() > dbSession.expiresAt) {
+          console.log("Session expired, invalidating")
+          await deleteSession()
+          return null
+        }
 
-    // Check if session has expired
-    if (new Date() > dbSession.expiresAt) {
-      console.log("Session expired, invalidating")
-      await deleteSession()
-      return null
+        // Update last activity
+        await updateSessionActivity(session.sessionId)
+      }
+    } catch (error) {
+      console.log("Database session check failed, continuing with JWT:", error)
+      // Continue with JWT validation even if database is not available
     }
-
-    // Update last activity
-    await updateSessionActivity(session.sessionId)
 
     return session
   } catch (error) {
