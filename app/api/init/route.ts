@@ -61,6 +61,9 @@ export async function GET() {
         sacco_name VARCHAR(255) NOT NULL,
         company_id INTEGER,
         route VARCHAR(255),
+        route_start VARCHAR(255),
+        route_end VARCHAR(255),
+        bus_stops TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )

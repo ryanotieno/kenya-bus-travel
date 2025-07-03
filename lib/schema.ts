@@ -33,6 +33,9 @@ export const saccos = pgTable('saccos', {
   saccoName: text('sacco_name').notNull(),
   companyId: integer('company_id').references(() => companies.id),
   route: text('route'),
+  routeStart: text('route_start'),
+  routeEnd: text('route_end'),
+  busStops: text('bus_stops'), // JSON string of bus stops
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 });

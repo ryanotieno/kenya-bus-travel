@@ -100,6 +100,9 @@ export async function POST(request: NextRequest) {
       saccoName,
       companyId: company.id,
       route: route,
+      routeStart: routeStart || null,
+      routeEnd: routeEnd || null,
+      busStops: busStops || null,
     })
     
     console.log("✅ Created sacco:", newSacco)

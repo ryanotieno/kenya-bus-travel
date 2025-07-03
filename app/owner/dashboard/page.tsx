@@ -82,26 +82,28 @@ export default function OwnerDashboard() {
     fetchSession()
   }, [])
 
-  // Fetch all companies for this owner
-  useEffect(() => {
+  // Fetch companies function
+  const fetchCompanies = async () => {
     if (!session?.email) return
     
-    async function fetchCompanies() {
-      try {
-        console.log('Fetching companies for email:', session.email)
-        const res = await fetch("/api/companies")
-        const all = await res.json()
-        console.log('All companies:', all)
-        const mine = all.filter((c: any) => c.ownerEmail === session.email)
-        console.log('My companies:', mine)
-        setCompanies(mine)
-        if (mine.length > 0 && mine[0].saccos.length > 0) {
-          setSelectedSaccoIdx(0)
-        }
-      } catch (error) {
-        console.error('Error fetching companies:', error)
+    try {
+      console.log('Fetching companies for email:', session.email)
+      const res = await fetch("/api/companies")
+      const all = await res.json()
+      console.log('All companies:', all)
+      const mine = all.filter((c: any) => c.ownerEmail === session.email)
+      console.log('My companies:', mine)
+      setCompanies(mine)
+      if (mine.length > 0 && mine[0].saccos.length > 0) {
+        setSelectedSaccoIdx(0)
       }
+    } catch (error) {
+      console.error('Error fetching companies:', error)
     }
+  }
+
+  // Fetch all companies for this owner
+  useEffect(() => {
     fetchCompanies()
   }, [session])
 
@@ -131,35 +133,37 @@ export default function OwnerDashboard() {
       vehicles,
     })
     
-    const response = await fetch("/api/saccos", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        ownerEmail: session.email,
-        saccoName,
-        routeStart,
-        routeEnd,
-        busStops,
-        companyName: saccoForm.companyName,
-        businessLicense: saccoForm.businessLicense,
-        address: saccoForm.address,
-        phone: saccoForm.phone,
-      }),
-    })
-    
-    const result = await response.json()
-    console.log('Save response:', result)
-    
-    if (result.success) {
-      // Refresh sidebar
-      const res = await fetch("/api/companies")
-      const all = await res.json()
-      const mine = all.filter((c: any) => c.ownerEmail === session.email)
-      console.log('After save - my companies:', mine)
-      setCompanies(mine)
-    } else {
-      console.error('Failed to save sacco:', result.error)
-      // You could add toast notification here
+    try {
+      const response = await fetch("/api/saccos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ownerEmail: session.email,
+          saccoName,
+          routeStart,
+          routeEnd,
+          busStops: JSON.stringify(busStops), // Store as JSON string
+          companyName: saccoForm.companyName,
+          businessLicense: saccoForm.businessLicense,
+          address: saccoForm.address,
+          phone: saccoForm.phone,
+        }),
+      })
+      
+      const result = await response.json()
+      console.log('Save response:', result)
+      
+      if (result.success) {
+        // Auto-refresh the data
+        await fetchCompanies()
+        return true
+      } else {
+        console.error('Failed to save sacco:', result.error)
+        return false
+      }
+    } catch (error) {
+      console.error('Error saving sacco:', error)
+      return false
     }
   }
 
@@ -181,7 +185,7 @@ export default function OwnerDashboard() {
         .map(stop => stop.trim())
         .filter(stop => stop.length > 0)
       
-      await saveSacco(
+      const success = await saveSacco(
         saccoForm.saccoName.trim(), 
         saccoForm.routeStart.trim(), 
         saccoForm.routeEnd.trim(), 
@@ -189,21 +193,25 @@ export default function OwnerDashboard() {
         []
       )
       
-      setSubmitMessage("Sacco registered successfully!")
-      setTimeout(() => {
-        setSaccoForm({ 
-          saccoName: "", 
-          routeStart: "", 
-          routeEnd: "", 
-          busStops: "",
-          companyName: "",
-          businessLicense: "",
-          address: "",
-          phone: ""
-        })
-        setAddingSacco(false)
-        setSubmitMessage("")
-      }, 2000)
+      if (success) {
+        setSubmitMessage("Sacco registered successfully!")
+        setTimeout(() => {
+          setSaccoForm({ 
+            saccoName: "", 
+            routeStart: "", 
+            routeEnd: "", 
+            busStops: "",
+            companyName: "",
+            businessLicense: "",
+            address: "",
+            phone: ""
+          })
+          setAddingSacco(false)
+          setSubmitMessage("")
+        }, 2000)
+      } else {
+        setSubmitMessage("Failed to register sacco. Please try again.")
+      }
     } catch (error) {
       setSubmitMessage("Failed to register sacco. Please try again.")
     } finally {
