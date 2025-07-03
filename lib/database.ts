@@ -1,21 +1,25 @@
-import { drizzle } from 'drizzle-orm/better-sqlite3';
-import Database from 'better-sqlite3';
-import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
-import * as schema from './schema';
+import { drizzle } from 'drizzle-orm/neon-http';
+import { neon } from '@neondatabase/serverless';
+import * as schemaSQLite from './schema';
+import * as schemaPG from './schema-pg';
 
-// For Vercel deployment, we need to handle the database differently
+// Use Neon PostgreSQL for production (Vercel)
+// Fallback to SQLite for development
 let db: any;
 
 if (process.env.NODE_ENV === 'production') {
-  // In production (Vercel), we'll use an in-memory database for now
-  // This is a temporary solution - in a real app, you'd use a cloud database
-  const sqlite = new Database(':memory:');
-  db = drizzle(sqlite, { schema });
-  console.log('📊 Using in-memory database for production');
+  // Production: Use Neon PostgreSQL
+  const sql = neon(process.env.DATABASE_URL!);
+  db = drizzle(sql, { schema: schemaPG });
+  console.log('📊 Using Neon PostgreSQL for production');
 } else {
-  // In development, use the local SQLite file
+  // Development: Use SQLite
+  const { drizzle: drizzleSQLite } = require('drizzle-orm/better-sqlite3');
+  const Database = require('better-sqlite3');
+  const { migrate } = require('drizzle-orm/better-sqlite3/migrator');
+  
   const sqlite = new Database('kenya-bus-travel.db');
-  db = drizzle(sqlite, { schema });
+  db = drizzleSQLite(sqlite, { schema: schemaSQLite });
   
   // Run migrations in development
   try {
