@@ -85,19 +85,32 @@ export default function Register() {
     
     async function fetchSaccos() {
       try {
+        console.log("🔍 Fetching saccos...")
         const res = await fetch("/api/saccos")
+        if (!res.ok) {
+          throw new Error(`Saccos API failed: ${res.status}`)
+        }
         const saccos = await res.json()
+        console.log("✅ Saccos fetched:", saccos)
         setSaccos(saccos)
       } catch (error) {
-        console.error('Error fetching saccos:', error)
+        console.error('❌ Error fetching saccos:', error)
         // Fallback to companies API if saccos API fails
         try {
+          console.log("🔄 Trying companies API fallback...")
           const res = await fetch("/api/companies")
+          if (!res.ok) {
+            throw new Error(`Companies API failed: ${res.status}`)
+          }
           const companies = await res.json()
-          const allSaccos = companies.flatMap((c: any) => c.saccos)
+          const allSaccos = companies.flatMap((c: any) => c.saccos || [])
+          console.log("✅ Companies fallback successful:", allSaccos)
           setSaccos(allSaccos)
         } catch (fallbackError) {
-          console.error('Fallback also failed:', fallbackError)
+          console.error('❌ Fallback also failed:', fallbackError)
+          // Provide empty array as final fallback
+          console.log("📝 Using empty saccos array as fallback")
+          setSaccos([])
         }
       }
     }
@@ -619,35 +632,51 @@ export default function Register() {
                       <Label htmlFor="sacco" className="text-sm font-medium text-gray-700">
                         Sacco
                       </Label>
-                      <Select value={selectedSacco} onValueChange={setSelectedSacco}>
-                        <SelectTrigger className="h-12 border-gray-200 focus:border-orange-500 focus:ring-orange-500 transition-all duration-300">
-                          <SelectValue placeholder="Select your sacco" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {saccos.map((sacco) => (
-                            <SelectItem key={sacco.saccoName} value={sacco.saccoName}>
-                              {sacco.saccoName}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      {saccos.length > 0 ? (
+                        <Select value={selectedSacco} onValueChange={setSelectedSacco}>
+                          <SelectTrigger className="h-12 border-gray-200 focus:border-orange-500 focus:ring-orange-500 transition-all duration-300">
+                            <SelectValue placeholder="Select your sacco" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {saccos.map((sacco) => (
+                              <SelectItem key={sacco.saccoName} value={sacco.saccoName}>
+                                {sacco.saccoName}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <div className="h-12 px-4 border border-gray-200 rounded-md flex items-center bg-gray-50">
+                          <span className="text-gray-500 text-sm">
+                            No saccos available. Please contact an administrator.
+                          </span>
+                        </div>
+                      )}
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="vehicle" className="text-sm font-medium text-gray-700">
                         Vehicle
                       </Label>
-                      <Select value={selectedVehicle} onValueChange={setSelectedVehicle}>
-                        <SelectTrigger className="h-12 border-gray-200 focus:border-orange-500 focus:ring-orange-500 transition-all duration-300">
-                          <SelectValue placeholder="Select your vehicle" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {availableVehicles.map((vehicle) => (
-                            <SelectItem key={vehicle.regNumber} value={vehicle.regNumber}>
-                              {vehicle.name} ({vehicle.regNumber})
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      {availableVehicles.length > 0 ? (
+                        <Select value={selectedVehicle} onValueChange={setSelectedVehicle}>
+                          <SelectTrigger className="h-12 border-gray-200 focus:border-orange-500 focus:ring-orange-500 transition-all duration-300">
+                            <SelectValue placeholder="Select your vehicle" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {availableVehicles.map((vehicle) => (
+                              <SelectItem key={vehicle.regNumber} value={vehicle.regNumber}>
+                                {vehicle.name} ({vehicle.regNumber})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <div className="h-12 px-4 border border-gray-200 rounded-md flex items-center bg-gray-50">
+                          <span className="text-gray-500 text-sm">
+                            No vehicles available for selected sacco.
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
