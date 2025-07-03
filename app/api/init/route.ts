@@ -87,34 +87,38 @@ export async function GET() {
     
     // Insert users
     await db.execute(sql`
-      INSERT OR IGNORE INTO users (id, first_name, last_name, email, phone, password, role) VALUES
+      INSERT INTO users (id, first_name, last_name, email, phone, password, role) VALUES
       (1, 'Charles', 'Otieno', 'otieno.charles@gmail.com', '+254700123456', 'password123', 'owner'),
       (2, 'Ryan', 'Otieno', 'ryanotieno@gmail.com', '+254700123457', 'password1', 'driver'),
       (3, 'John', 'Doe', 'john.doe@example.com', '+254700123458', 'password123', 'owner')
+      ON CONFLICT (id) DO NOTHING
     `)
     console.log("✅ Users inserted")
     
     // Insert companies
     await db.execute(sql`
-      INSERT OR IGNORE INTO companies (id, name, business_license, address, phone, email, owner_id) VALUES
+      INSERT INTO companies (id, name, business_license, address, phone, email, owner_id) VALUES
       (1, 'Latema Transport Ltd', 'LIC001', 'Nairobi, Kenya', '+254700123456', 'info@latema.co.ke', 1),
       (2, 'Kiragi Transport', 'LIC002', 'Kisumu, Kenya', '+254700123457', 'info@kiragi.co.ke', 3)
+      ON CONFLICT (id) DO NOTHING
     `)
     console.log("✅ Companies inserted")
     
     // Insert saccos
     await db.execute(sql`
-      INSERT OR IGNORE INTO saccos (id, sacco_name, company_id, route) VALUES
+      INSERT INTO saccos (id, sacco_name, company_id, route) VALUES
       (1, 'Latema Sacco', 1, 'Nairobi - Mombasa'),
       (2, 'Kiragi Sacco', 2, 'Nairobi - Kisumu')
+      ON CONFLICT (id) DO NOTHING
     `)
     console.log("✅ Saccos inserted")
     
     // Insert vehicles
     await db.execute(sql`
-      INSERT OR IGNORE INTO vehicles (id, name, reg_number, capacity, sacco_id, status) VALUES
+      INSERT INTO vehicles (id, name, reg_number, capacity, sacco_id, status) VALUES
       (1, 'Latema Bus 1', 'KCA 123A', 45, 1, 'active'),
       (2, 'Kiragi Bus 1', 'KCA 456B', 52, 2, 'active')
+      ON CONFLICT (id) DO NOTHING
     `)
     console.log("✅ Vehicles inserted")
     
