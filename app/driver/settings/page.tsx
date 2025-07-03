@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Header } from "@/components/header"
 import { SidebarWrapper } from "@/components/sidebar"
 import { Button } from "@/components/ui/button"
@@ -12,16 +12,124 @@ import { Switch } from "@/components/ui/switch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Bell, Shield, User, MapPin, Bus } from "lucide-react"
 
+interface Driver {
+  firstName: string
+  lastName: string
+  email: string
+  phone: string
+  license: string
+  experience: string
+  sacco: string
+  vehicle: string
+  registeredAt: string
+}
+
+interface Vehicle {
+  name: string
+  regNumber: string
+  capacity: number
+  id: number
+}
+
+interface Sacco {
+  saccoName: string
+  route?: string
+  routeStart?: string
+  routeEnd?: string
+  vehicles: Vehicle[]
+}
+
+interface Company {
+  ownerEmail: string
+  ownerName?: string
+  companyName?: string
+  saccos: Sacco[]
+}
+
 export default function DriverSettings() {
   const [notificationsEnabled, setNotificationsEnabled] = useState(true)
   const [locationSharing, setLocationSharing] = useState(true)
+  const [driver, setDriver] = useState<Driver | null>(null)
+  const [vehicle, setVehicle] = useState<Vehicle | null>(null)
+  const [sacco, setSacco] = useState<Sacco | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchDriverData = async () => {
+      try {
+        // Get current user session
+        const sessionResponse = await fetch('/api/auth/session')
+        if (!sessionResponse.ok) {
+          console.error('Not logged in')
+          return
+        }
+        const sessionData = await sessionResponse.json()
+        // Handle both old and new session formats
+        const user = sessionData.user || sessionData
+        const userEmail = user.email
+        
+        // Fetch drivers data
+        const driversResponse = await fetch('/api/drivers')
+        const drivers: Driver[] = await driversResponse.json()
+        const currentDriver = drivers.find(d => d.email === userEmail)
+        
+        if (currentDriver) {
+          setDriver(currentDriver)
+          
+          // Fetch companies data to get vehicle and sacco details
+          const companiesResponse = await fetch('/api/companies')
+          const companies: Company[] = await companiesResponse.json()
+          
+          // Find the sacco and vehicle for this driver
+          for (const company of companies) {
+            for (const saccoData of company.saccos) {
+              if (saccoData.saccoName === currentDriver.sacco) {
+                setSacco(saccoData)
+                
+                // Find the specific vehicle
+                const vehicleData = saccoData.vehicles.find(v => v.regNumber === currentDriver.vehicle)
+                if (vehicleData) {
+                  setVehicle(vehicleData)
+                }
+                break
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching driver data:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchDriverData()
+  }, [])
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500 mx-auto"></div>
+          <p className="mt-2 text-muted-foreground">Loading driver information...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="flex min-h-screen flex-col md:flex-row">
-      <SidebarWrapper userType="driver" userName="David Driver" userEmail="driver@example.com" />
+      <SidebarWrapper 
+        userType="driver" 
+        userName={driver ? `${driver.firstName} ${driver.lastName}` : ''} 
+        userEmail={driver?.email || ''} 
+      />
 
       <div className="flex-1 flex flex-col">
-        <Header userName="David Driver" notificationCount={2} />
+        <Header 
+          userName={driver ? `${driver.firstName} ${driver.lastName}` : ''} 
+          notificationCount={2} 
+        />
 
         <main className="flex-1 p-6">
           <div className="max-w-4xl mx-auto space-y-6">
@@ -48,7 +156,7 @@ export default function DriverSettings() {
                     <div className="flex items-center justify-center mb-6">
                       <div className="relative">
                         <div className="h-24 w-24 rounded-full bg-orange-100 text-orange-800 flex items-center justify-center text-3xl font-semibold">
-                          D
+                          {driver?.firstName?.charAt(0) || 'D'}
                         </div>
                         <Button
                           variant="outline"
@@ -64,32 +172,32 @@ export default function DriverSettings() {
                     <div className="grid gap-4 md:grid-cols-2">
                       <div className="space-y-2">
                         <Label htmlFor="first-name">First name</Label>
-                        <Input id="first-name" defaultValue="David" />
+                        <Input id="first-name" defaultValue={driver?.firstName || ''} />
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="last-name">Last name</Label>
-                        <Input id="last-name" defaultValue="Driver" />
+                        <Input id="last-name" defaultValue={driver?.lastName || ''} />
                       </div>
                     </div>
 
                     <div className="space-y-2">
                       <Label htmlFor="email">Email</Label>
-                      <Input id="email" type="email" defaultValue="driver@example.com" />
+                      <Input id="email" type="email" defaultValue={driver?.email || ''} />
                     </div>
 
                     <div className="space-y-2">
                       <Label htmlFor="phone">Phone number</Label>
-                      <Input id="phone" type="tel" defaultValue="+254 723 456 789" />
+                      <Input id="phone" type="tel" defaultValue={driver?.phone || ''} />
                     </div>
 
                     <div className="space-y-2">
                       <Label htmlFor="license">Driver's License Number</Label>
-                      <Input id="license" defaultValue="DL-123456789" />
+                      <Input id="license" defaultValue={driver?.license || ''} />
                     </div>
 
                     <div className="space-y-2">
                       <Label htmlFor="experience">Years of Experience</Label>
-                      <Select defaultValue="5">
+                      <Select defaultValue={driver?.experience || '1'}>
                         <SelectTrigger id="experience">
                           <SelectValue placeholder="Select years" />
                         </SelectTrigger>
@@ -97,10 +205,16 @@ export default function DriverSettings() {
                           <SelectItem value="1">1 year</SelectItem>
                           <SelectItem value="2">2 years</SelectItem>
                           <SelectItem value="3">3 years</SelectItem>
+                          <SelectItem value="4">4 years</SelectItem>
                           <SelectItem value="5">5+ years</SelectItem>
                           <SelectItem value="10">10+ years</SelectItem>
                         </SelectContent>
                       </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="sacco">Sacco</Label>
+                      <Input id="sacco" defaultValue={driver?.sacco || ''} disabled />
                     </div>
                   </CardContent>
                   <CardFooter className="flex justify-end gap-2">
@@ -139,28 +253,33 @@ export default function DriverSettings() {
                 <Card>
                   <CardHeader>
                     <CardTitle>Vehicle Information</CardTitle>
-                    <CardDescription>Manage your vehicle details</CardDescription>
+                    <CardDescription>Your assigned vehicle details</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="space-y-2">
-                      <Label htmlFor="bus-id">Bus ID</Label>
-                      <Input id="bus-id" defaultValue="KBZ 123C" />
+                      <Label htmlFor="bus-id">Bus Registration Number</Label>
+                      <Input id="bus-id" defaultValue={vehicle?.regNumber || driver?.vehicle || ''} disabled />
                     </div>
 
                     <div className="space-y-2">
                       <Label htmlFor="bus-model">Bus Model</Label>
-                      <Input id="bus-model" defaultValue="Scania K410" />
+                      <Input id="bus-model" defaultValue={vehicle?.name || ''} disabled />
                     </div>
 
                     <div className="grid gap-4 md:grid-cols-2">
                       <div className="space-y-2">
                         <Label htmlFor="capacity">Passenger Capacity</Label>
-                        <Input id="capacity" type="number" defaultValue="45" />
+                        <Input id="capacity" type="number" defaultValue={vehicle?.capacity?.toString() || ''} disabled />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="year">Year of Manufacture</Label>
-                        <Input id="year" defaultValue="2020" />
+                        <Label htmlFor="route">Assigned Route</Label>
+                        <Input id="route" defaultValue={sacco?.route || `${sacco?.routeStart || ''} - ${sacco?.routeEnd || ''}`} disabled />
                       </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="sacco-name">Sacco Name</Label>
+                      <Input id="sacco-name" defaultValue={sacco?.saccoName || driver?.sacco || ''} disabled />
                     </div>
 
                     <div className="space-y-2">

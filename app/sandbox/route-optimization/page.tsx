@@ -624,7 +624,7 @@ export default function RouteOptimizationSandbox() {
                       <Button 
                         variant="outline" 
                         size="sm" 
-                        onClick={resetSimulation}
+                        onClick={() => resetSimulation()}
                       >
                         <RotateCcw className="h-4 w-4 mr-1" />
                         Reset

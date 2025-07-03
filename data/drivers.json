@@ -10,5 +10,17 @@
     "sacco": "KILE KILE",
     "vehicle": "KBW 138P",
     "registeredAt": "2025-05-31T20:56:01.754Z"
+  },
+  {
+    "firstName": "William",
+    "lastName": "Kamau",
+    "email": "kamauwilliam@gmail.com",
+    "phone": "0722618470",
+    "license": "1234567",
+    "experience": "5",
+    "password": "driver123",
+    "sacco": "Latema Sacco",
+    "vehicle": "KDA 882P",
+    "registeredAt": "2025-06-30T19:04:38.883Z"
   }
 ]

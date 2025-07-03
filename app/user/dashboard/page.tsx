@@ -27,6 +27,7 @@ interface Route {
 }
 
 export default function UserDashboard() {
+  const [session, setSession] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [stations, setStations] = useState<Station[]>([])
   const [routes, setRoutes] = useState<Route[]>([])
@@ -39,9 +40,22 @@ export default function UserDashboard() {
   const [selectedVehicles, setSelectedVehicles] = useState<{name: string, regNumber: string, capacity: number}[]>([])
 
   useEffect(() => {
-    async function fetchData() {
+    async function fetchSessionAndData() {
       try {
         setLoading(true)
+
+        // Get current user session
+        const sessionResponse = await fetch('/api/auth/session')
+        if (!sessionResponse.ok) {
+          console.error('Not logged in')
+          setSession(null)
+          setLoading(false)
+          return
+        }
+        const sessionData = await sessionResponse.json()
+        // Handle both old and new session formats
+        const user = sessionData.user || sessionData
+        setSession(user)
 
         // Fetch stations
         const stationsRes = await fetch("/api/stations")
@@ -60,7 +74,7 @@ export default function UserDashboard() {
       }
     }
 
-    fetchData()
+    fetchSessionAndData()
   }, [])
 
   const handleRefresh = () => {
@@ -127,12 +141,37 @@ export default function UserDashboard() {
     setSelectedVehicles(vehicles)
   }
 
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500 mx-auto"></div>
+          <p className="mt-2 text-muted-foreground">Loading dashboard...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!session) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold text-red-600 mb-2">Not Logged In</h2>
+          <p className="text-gray-600">Please log in to access the user dashboard.</p>
+          <Button onClick={() => router.push('/login')} className="mt-4">
+            Go to Login
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="flex min-h-screen flex-col md:flex-row">
-      <SidebarWrapper userType="user" userName="John Passenger" userEmail="passenger@example.com" />
+      <SidebarWrapper userType="user" userName={session.name} userEmail={session.email} />
 
       <div className="flex-1 flex flex-col">
-        <Header userName="John Passenger" notificationCount={3} />
+        <Header userName={session.name} notificationCount={3} />
 
         <main className="flex-1 p-6">
           <div className="max-w-5xl mx-auto space-y-6">
@@ -198,18 +237,18 @@ export default function UserDashboard() {
                 ) : (
                   <table className="min-w-full border text-sm">
                     <thead>
-                      <tr className="bg-gray-100">
-                        <th className="px-3 py-2 border">Name</th>
-                        <th className="px-3 py-2 border">Reg. Number</th>
-                        <th className="px-3 py-2 border">Capacity</th>
+                      <tr className="bg-gray-50">
+                        <th className="border p-2 text-left">Vehicle</th>
+                        <th className="border p-2 text-left">Registration</th>
+                        <th className="border p-2 text-left">Capacity</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {selectedVehicles.map((v, i) => (
-                        <tr key={i}>
-                          <td className="px-3 py-2 border">{v.name}</td>
-                          <td className="px-3 py-2 border">{v.regNumber}</td>
-                          <td className="px-3 py-2 border">{v.capacity}</td>
+                      {selectedVehicles.map((vehicle, idx) => (
+                        <tr key={idx} className="hover:bg-gray-50">
+                          <td className="border p-2">{vehicle.name}</td>
+                          <td className="border p-2">{vehicle.regNumber}</td>
+                          <td className="border p-2">{vehicle.capacity} seats</td>
                         </tr>
                       ))}
                     </tbody>

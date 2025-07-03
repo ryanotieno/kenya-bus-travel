@@ -2,8 +2,10 @@ import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
 import { jwtVerify, SignJWT } from "jose"
 
-// This would be an environment variable in a real app
-const JWT_SECRET = new TextEncoder().encode("your-secret-key")
+// Use environment variable for JWT secret, fallback to a default for development
+const JWT_SECRET = new TextEncoder().encode(
+  process.env.JWT_SECRET || "your-secret-key-for-development-only"
+)
 
 export type UserRole = "user" | "driver" | "owner"
 

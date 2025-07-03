@@ -1,741 +1,1784 @@
-"use client"
-
-import { useState, useEffect } from "react"
-import { Header } from "@/components/header"
-import { SidebarWrapper } from "@/components/sidebar"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Progress } from "@/components/ui/progress"
-import { Bus, Users, Clock, MapPin } from "lucide-react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { useRouter } from "next/navigation"
+"use client";
+import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import { AlertCircle, CheckCircle, MapPin, Navigation, TrendingUp, Users, Bus, DollarSign, PlayCircle, StopCircle, ArrowRight, UserCircle2, UsersRound, Clock, Zap, Minus, Plus, BarChart3 } from "lucide-react";
+import DriverPerformanceSidebar from "@/components/driver-performance-sidebar";
+import { useAuth } from "@/hooks/use-auth";
 
 export default function DriverDashboard() {
-  const [tripProgress, setTripProgress] = useState(0)
-  const [totalRevenue, setTotalRevenue] = useState(0)
-  const [driverVehicle, setDriverVehicle] = useState<any>(null)
-  const [shiftStarted, setShiftStarted] = useState(false)
-  const [tripStarted, setTripStarted] = useState(false)
-  const [showTripDialog, setShowTripDialog] = useState(false)
-  const [passengerCount, setPassengerCount] = useState("")
-  const [session, setSession] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
-  const router = useRouter()
+  const router = useRouter();
+  const { user, loading: authLoading, error: authError } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [tripStatus, setTripStatus] = useState("idle"); // idle, boarding, enRoute, completed
+  const [currentStop, setCurrentStop] = useState(0);
+  const [passengers, setPassengers] = useState(0);
+  const [revenue, setRevenue] = useState(0);
+  const [shiftStatus, setShiftStatus] = useState("off_duty");
+  
+  // Driver and route data
+  const [driverData, setDriverData] = useState<any>(null);
+  const [vehicleData, setVehicleData] = useState<any>(null);
+  const [routeStops, setRouteStops] = useState<Array<{
+    name: string, 
+    distance: number,
+    dropOffCount: number
+  }>>([]);
+  const [vehicleCapacity, setVehicleCapacity] = useState(14);
 
-  // Simulated stops and passengers
-  const [stops, setStops] = useState<{
-    id: number
-    name: string
-    distance: number
-    passengers: number
-  }[]>([])
+  // Dialogs
+  const [showStartDialog, setShowStartDialog] = useState(false);
+  const [showStopDialog, setShowStopDialog] = useState(false);
+  const [showEndDialog, setShowEndDialog] = useState(false);
+  const [showPaymentDialog, setShowPaymentDialog] = useState(false);
+  const [showDropOffDialog, setShowDropOffDialog] = useState(false);
 
-  const [currentStopIndex, setCurrentStopIndex] = useState(0)
-  const [pickupDialogOpen, setPickupDialogOpen] = useState(false)
-  const [pickupCount, setPickupCount] = useState("")
-  const [dropOffs, setDropOffs] = useState<{ stop: string }[]>([])
-  const [onBoard, setOnBoard] = useState<{ dropOff: string }[]>([])
+  // Payment state
+  const [currentPassenger, setCurrentPassenger] = useState(1);
+  const [totalPassengers, setTotalPassengers] = useState(0);
+  const [passengerDropOff, setPassengerDropOff] = useState("");
+  const [amountReceived, setAmountReceived] = useState("");
+  const [paymentConfirmed, setPaymentConfirmed] = useState(false);
+  const [payForOthers, setPayForOthers] = useState(false);
+  const [othersCount, setOthersCount] = useState(1);
+  const [othersDropOffs, setOthersDropOffs] = useState<{[key: string]: number}>({});
+  const [showPaymentSummary, setShowPaymentSummary] = useState(false);
 
-  // Track fares for each passenger as they are picked up
-  const [fareRecords, setFareRecords] = useState<{ fare: number }[]>([])
-  const [droppedCount, setDroppedCount] = useState(0)
+  // Animation and visual state
+  const [tripProgress, setTripProgress] = useState(0);
+  const [travelProgress, setTravelProgress] = useState(0);
+  const [showTravelAnimation, setShowTravelAnimation] = useState(false);
+  const [passengerAvatars, setPassengerAvatars] = useState<string[]>([]);
+  const [boardingPassengers, setBoardingPassengers] = useState<string[]>([]);
+  const [droppingPassengers, setDroppingPassengers] = useState<string[]>([]);
+  const [showBoardingAnimation, setShowBoardingAnimation] = useState(false);
+  const [showDropOffAnimation, setShowDropOffAnimation] = useState(false);
+  const [vehicleStatus, setVehicleStatus] = useState("idle"); // idle, boarding, traveling, stopping
+  const [currentSpeed, setCurrentSpeed] = useState(0);
+  const [etaToNextStop, setEtaToNextStop] = useState(0);
 
-  // New state for initial passenger assignment
-  const [initialAssignmentOpen, setInitialAssignmentOpen] = useState(false)
-  const [initialDropOffs, setInitialDropOffs] = useState<{ stop: string }[]>([])
-  const [initialCount, setInitialCount] = useState(0)
+  // New state for capacity warning
+  const [showCapacityWarning, setShowCapacityWarning] = useState(false);
 
-  // Add state for drop-off counts per stop
-  const [dropOffCounts, setDropOffCounts] = useState<{ [stop: string]: number }>({})
-  const [initialDropOffCounts, setInitialDropOffCounts] = useState<{ [stop: string]: number }>({})
+  // Drop-off tracking state
+  const [tempDropOffCount, setTempDropOffCount] = useState(0);
 
-  // New state for trip summary
-  const [showTripSummary, setShowTripSummary] = useState(false)
+  // Trip statistics tracking
+  const [totalPassengersServed, setTotalPassengersServed] = useState(0);
+  const [totalDropOffs, setTotalDropOffs] = useState(0);
+  const [tripStartTime, setTripStartTime] = useState<Date | null>(null);
+  const [tripEndTime, setTripEndTime] = useState<Date | null>(null);
 
-  // Fetch session and driver vehicle info on mount
+  // Waiting passengers at current stop
+  const [waitingPassengers, setWaitingPassengers] = useState(0);
+
+  // Performance sidebar state
+  const [showPerformanceSidebar, setShowPerformanceSidebar] = useState(true);
+  const [performanceView, setPerformanceView] = useState<"trip" | "performance">("trip");
+
+  // Mock performance data - in real app this would come from API
+  const mockPerformanceData = {
+    // Revenue & Financial KPIs
+    dailyRevenue: 8500,
+    weeklyRevenue: 52000,
+    monthlyRevenue: 185000,
+    averageFare: 45,
+    revenueGrowth: 12.5,
+    
+    // Efficiency KPIs
+    tripsCompleted: 24,
+    averageTripTime: 35,
+    onTimePerformance: 94,
+    capacityUtilization: 78,
+    fuelEfficiency: 8.5,
+    
+    // Safety & Compliance KPIs
+    safetyScore: 92,
+    incidentsThisMonth: 0,
+    licenseExpiryDays: 45,
+    vehicleMaintenanceStatus: "Good",
+    
+    // Customer Service KPIs
+    customerRating: 4.6,
+    complaintsThisMonth: 1,
+    passengerSatisfaction: 88,
+    
+    // Operational KPIs
+    totalDistance: 1250,
+    workingHours: 8.5,
+    breakTimeCompliance: 98,
+    routeAdherence: 99,
+    
+    // Rankings & Comparisons
+    rankAmongDrivers: 3,
+    totalDrivers: 15,
+    performanceTrend: "improving" as const,
+  };
+
+  // Check authentication and fetch driver data
   useEffect(() => {
-    async function fetchSessionAndVehicle() {
-      setLoading(true)
-      const sessionRes = await fetch("/api/auth/session")
-      if (!sessionRes.ok) {
-        setSession(null)
-        setLoading(false)
-        return
+    if (authLoading) return; // Wait for auth to load
+
+    // Check if user is authenticated and is a driver
+    if (!user) {
+      router.push('/login?redirect=/driver/dashboard');
+      return;
+    }
+
+    if (user.role !== 'driver') {
+      // Redirect to appropriate dashboard based on role
+      if (user.role === 'user') {
+        router.push('/user/dashboard');
+      } else if (user.role === 'owner') {
+        router.push('/owner/dashboard');
       }
-      const sessionData = await sessionRes.json()
-      setSession(sessionData)
-      // Now fetch driver vehicle
-      const res = await fetch("/api/drivers")
-      const drivers = await res.json()
-      const driver = drivers.find((d: any) => d.email === sessionData.email)
-      setDriverVehicle(driver)
-      setLoading(false)
+      return;
     }
-    fetchSessionAndVehicle()
-  }, [])
 
-  // Generate stops when trip starts
-  useEffect(() => {
-    if (tripStarted) {
-      // Simulate stops: CBD Terminal, Museum Hill, Westlands, Kileleshwa, Lavington (final drop-off)
-      const stopNames = [
-        "CBD Terminal",
-        "Museum Hill",
-        "Westlands",
-        "Kileleshwa",
-        "Lavington" // Final stop, drop-off only
-      ]
-      const simulatedStops = stopNames.slice(0, -1).map((name, i) => ({
-        id: i + 1,
-        name,
-        distance: 2 + i * 3 + Math.floor(Math.random() * 2), // km from start
-        passengers: 2 + Math.floor(Math.random() * 10)
-      }))
-      setStops(simulatedStops)
-    } else {
-      setStops([])
-    }
-  }, [tripStarted])
+    // User is authenticated and is a driver, fetch their data
+    fetchDriverData();
+  }, [user, authLoading, router]);
 
-  // When trip starts, reset stop index and on-board list
-  useEffect(() => {
-    if (tripStarted) {
-      setCurrentStopIndex(0)
-      setOnBoard([])
-      setDropOffs([])
-    }
-  }, [tripStarted])
-
-  // Update trip progress whenever currentStopIndex or stops changes
-  useEffect(() => {
-    if (stops.length > 0) {
-      // Progress is based on current stop index (including Lavington as the final stop)
-      const totalStops = stops.length + 1 // +1 for Lavington
-      setTripProgress(Math.round((currentStopIndex / (totalStops - 1)) * 100))
-    } else {
-      setTripProgress(0)
-    }
-  }, [currentStopIndex, stops])
-
-  // Helper to get the current stop's distance (including Lavington)
-  const getCurrentStopDistance = () => {
-    if (currentStopIndex < stops.length) {
-      return stops[currentStopIndex]?.distance ?? 0
-    } else if (stops.length > 0) {
-      // Lavington: last stop's distance + 3
-      return stops[stops.length - 1].distance + 3
-    }
-    return 0
-  }
-
-  // Helper to get vehicle capacity
-  const vehicleCapacity = driverVehicle?.vehicle?.capacity || 45
-  const onBoardCount = onBoard.length
-
-  // In pickup dialog, show counters for each stop ahead
-  // Replace dropOffs with dropOffCounts
-  const handleDropOffCountChange = (stop: string, value: number) => {
-    setDropOffCounts(prev => ({ ...prev, [stop]: value }))
-  }
-  // In initial assignment dialog
-  const handleInitialDropOffCountChange = (stop: string, value: number) => {
-    setInitialDropOffCounts(prev => ({ ...prev, [stop]: value }))
-  }
-
-  // Confirm pickup with counters
-  const handlePickupConfirm = (e: React.FormEvent) => {
-    e.preventDefault()
-    const count = Number(pickupCount)
-    if (!count || count < 1) return
-    // Validate total
-    const totalAssigned = Object.values(dropOffCounts).reduce((a, b) => a + b, 0)
-    if (totalAssigned !== count) return
-    // Validate capacity
-    if (onBoardCount + count > vehicleCapacity) return
-    const currentDistance = getCurrentStopDistance()
-    const dropOffOptions = getDropOffOptions()
-    // Create onBoard and fare records
-    let newOnBoard: { dropOff: string }[] = []
-    let fares: { fare: number }[] = []
-    for (const stop of Object.keys(dropOffCounts)) {
-      const n = dropOffCounts[stop]
-      if (n > 0) {
-        let toDist: number | undefined
-        if (stop === "Lavington") {
-          toDist = (stops.length > 0 ? stops[stops.length - 1].distance + 3 : 0)
-        } else {
-          toDist = dropOffOptions.find(s => s.name === stop)?.distance
-        }
-        if (typeof toDist !== "number" || isNaN(toDist)) toDist = 0
-        for (let i = 0; i < n; ++i) {
-          newOnBoard.push({ dropOff: stop })
-          fares.push({ fare: Math.max(0, toDist - currentDistance) * 5 })
-        }
+  const fetchDriverData = async () => {
+    if (!user) return;
+    
+    try {
+      const driversResponse = await fetch('/api/drivers');
+      const drivers = await driversResponse.json();
+      
+      // Find the current driver by their email from the session
+      const currentDriver = drivers.find((d: any) => d.email === user.email);
+      
+      if (!currentDriver) {
+        console.error('Driver not found for email:', user.email);
+        setLoading(false);
+        return;
       }
+      
+      setDriverData(currentDriver);
+      
+      // Fetch companies for vehicle and route data
+      const companiesResponse = await fetch('/api/companies');
+      const companies = await companiesResponse.json();
+      
+      let saccoFound = false;
+      let driverVehicle = null;
+      
+      for (const company of companies) {
+        for (const sacco of company.saccos) {
+          // Check if any vehicle in this sacco is assigned to the current driver
+          if (sacco.vehicles && sacco.vehicles.length > 0) {
+            driverVehicle = sacco.vehicles.find((v: any) => v.driverId === currentDriver.id);
+            
+            if (driverVehicle) {
+              saccoFound = true;
+              setVehicleData(driverVehicle);
+              setVehicleCapacity(driverVehicle.capacity || 14);
+              
+              // Set route stops with drop-off counts
+              if (sacco.busStops && sacco.busStops.length > 0) {
+                const stops = sacco.busStops.map((stop: any, index: number) => ({
+                  name: stop,
+                  distance: index * 2,
+                  dropOffCount: 0
+                }));
+                setRouteStops(stops);
+              } else if (sacco.route) {
+                // If no bus stops but route is defined, create stops from route
+                const routeParts = sacco.route.split(' - ');
+                const stops = routeParts.map((stop: any, index: number) => ({
+                  name: stop.trim(),
+                  distance: index * 2,
+                  dropOffCount: 0
+                }));
+                setRouteStops(stops);
+              } else {
+                // Fallback stops if no route info
+                setRouteStops([
+                  { name: "Starting Point", distance: 0, dropOffCount: 0 },
+                  { name: "Route Point 1", distance: 5, dropOffCount: 0 },
+                  { name: "Route Point 2", distance: 10, dropOffCount: 0 },
+                ]);
+              }
+              break;
+            }
+          }
+        }
+        if (saccoFound) break;
+      }
+      
+      if (!saccoFound) {
+        console.error('No vehicle assigned to driver:', user.email);
+        // Set default vehicle data for display
+        setVehicleData({
+          name: 'No Vehicle Assigned',
+          regNumber: 'N/A',
+          capacity: 14
+        });
+        setRouteStops([
+          { name: "No Route Assigned", distance: 0, dropOffCount: 0 },
+        ]);
+      }
+      
+      setLoading(false);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      setLoading(false);
     }
-    setFareRecords(prev => [...prev, ...fares])
-    setOnBoard([...onBoard, ...newOnBoard])
-    setStops(prev => prev.map((s, i) =>
-      i === currentStopIndex ? { ...s, passengers: Math.max(0, s.passengers - count) } : s
-    ))
-    setPickupDialogOpen(false)
-    setDropOffCounts({})
-  }
+  };
 
-  // When dropping off, update total revenue immediately
+  // Update trip progress
   useEffect(() => {
-    // Revenue is sum of all fares for dropped-off passengers
-    const revenue = fareRecords.slice(0, droppedCount).reduce((sum, f) => sum + f.fare, 0)
-    setTotalRevenue(revenue)
-  }, [droppedCount, fareRecords])
+    const progress = ((currentStop + 1) / routeStops.length) * 100;
+    setTripProgress(progress);
+  }, [currentStop, routeStops.length]);
 
-  const handleStartDriving = () => {
-    setShiftStarted(true)
-  }
+  // Generate passenger avatars
+  const generatePassengerAvatars = (count: number) => {
+    const colors = ["bg-blue-500", "bg-green-500", "bg-yellow-500", "bg-pink-500", "bg-purple-500", "bg-orange-500", "bg-teal-500", "bg-red-500"];
+    return Array.from({ length: count }, (_, i) => colors[i % colors.length]);
+  };
 
+  // Calculate fare based on distance
+  const calculateFare = (stopIndex: number) => {
+    return Math.max(30, stopIndex * 15);
+  };
+
+  // Get status color
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "Empty": return "text-gray-600";
+      case "Available": return "text-green-600";
+      case "Full": return "text-red-600";
+      default: return "text-gray-600";
+    }
+  };
+
+  // Get capacity status
+  const getCapacityStatus = () => {
+    const currentCount = getCurrentPassengerCount();
+    if (currentCount === 0) return "Empty";
+    if (currentCount < vehicleCapacity) return "Available";
+    return "Full";
+  };
+
+  // Animate boarding process
+  const animateBoarding = (count: number) => {
+    setShowBoardingAnimation(true);
+    setVehicleStatus("boarding");
+    
+    const avatars = generatePassengerAvatars(count);
+    setBoardingPassengers(avatars);
+    
+    setTimeout(() => {
+      setPassengerAvatars(prev => [...prev, ...avatars]);
+      setBoardingPassengers([]);
+      setShowBoardingAnimation(false);
+      setVehicleStatus("traveling");
+    }, 2000);
+  };
+
+  // Animate drop-off process
+  const animateDropOff = (count: number) => {
+    setShowDropOffAnimation(true);
+    setVehicleStatus("stopping");
+    
+    // Get the avatars for the passengers being dropped off (last N passengers)
+    const droppingAvatars = passengerAvatars.slice(-count);
+    setDroppingPassengers(droppingAvatars);
+    
+    setTimeout(() => {
+      // Remove the dropped passengers from the end of the array
+      setPassengerAvatars(prev => prev.slice(0, -count));
+      setDroppingPassengers([]);
+      setShowDropOffAnimation(false);
+      setVehicleStatus("boarding");
+    }, 1500);
+  };
+
+  // Animate travel between stops
+  const animateTravel = () => {
+    setShowTravelAnimation(true);
+    setVehicleStatus("traveling");
+    setTravelProgress(0);
+    setCurrentSpeed(40);
+    
+    const interval = setInterval(() => {
+      setTravelProgress(prev => {
+        if (prev >= 100) {
+          clearInterval(interval);
+          setShowTravelAnimation(false);
+          setCurrentSpeed(0);
+          return 100;
+        }
+        return prev + 2;
+      });
+    }, 100);
+  };
+
+  // Handle start shift
+  const handleStartShift = () => {
+    setShiftStatus("on_duty");
+  };
+
+  // Handle end shift
+  const handleEndShift = () => {
+    setShiftStatus("off_duty");
+    setTripStatus("idle");
+    setCurrentStop(0);
+    setPassengers(0);
+    setRevenue(0);
+    setPassengerAvatars([]);
+    setTripProgress(0);
+    setVehicleStatus("idle");
+    
+    // Reset route stop drop-off counts
+    setRouteStops(prev => prev.map(stop => ({
+      ...stop,
+      dropOffCount: 0
+    })));
+  };
+
+  // Reset payment form
+  const resetPaymentForm = () => {
+    setPassengerDropOff("");
+    setAmountReceived("");
+    setPaymentConfirmed(false);
+    setPayForOthers(false);
+    setOthersCount(1);
+    setOthersDropOffs({});
+  };
+
+  // Handle start trip
   const handleStartTrip = () => {
-    setShowTripDialog(true)
-  }
+    setTripStatus("boarding");
+    setCurrentStop(0);
+    setPassengers(0);
+    setRevenue(0);
+    setTripProgress(0);
+    setTravelProgress(0);
+    setShowStartDialog(false);
+    
+    // Initialize trip statistics
+    setTotalPassengersServed(0);
+    setTotalDropOffs(0);
+    setTripStartTime(new Date());
+    setTripEndTime(null);
+    
+    // Generate initial waiting passengers
+    const initialWaiting = Math.floor(Math.random() * 8) + 2; // 2-9 passengers
+    setWaitingPassengers(initialWaiting);
+    
+    // Clear any previous passenger tracking
+    setPassengerAvatars([]);
+    
+    // Reset drop-off counts
+    setRouteStops(prev => prev.map(stop => ({
+      ...stop,
+      dropOffCount: 0
+    })));
+    
+    // Set trip status to enRoute immediately - no automatic boarding
+    setTimeout(() => {
+      setTripStatus("enRoute");
+      setShiftStatus("on_trip");
+    }, 1000);
+  };
 
-  const handleTripDialogSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    setTripStarted(true)
-    setShowTripDialog(false)
-  }
+  // Handle payment confirmation
+  const handlePaymentConfirm = () => {
+    if (!passengerDropOff || !paymentConfirmed) return;
 
-  // End trip handler
-  const handleEndTrip = () => {
-    setTripStarted(false)
-    setPassengerCount("")
-    setStops([])
-  }
+    let totalFare = calculateFare(routeStops.findIndex(stop => stop.name === passengerDropOff));
+    let additionalPassengers = 0;
+    
+    // Add drop-off count for the selected destination
+    setRouteStops(prev => prev.map(stop => 
+      stop.name === passengerDropOff 
+        ? { ...stop, dropOffCount: stop.dropOffCount + 1 }
+        : stop
+    ));
+    
+    if (payForOthers) {
+      // Calculate additional fares for others and add drop-off counts
+      Object.entries(othersDropOffs).forEach(([stopName, count]) => {
+        const stopIndex = routeStops.findIndex(stop => stop.name === stopName);
+        totalFare += calculateFare(stopIndex) * count;
+        additionalPassengers += count;
+        
+        // Add drop-off counts for additional passengers
+        setRouteStops(prev => prev.map(stop => 
+          stop.name === stopName 
+            ? { ...stop, dropOffCount: stop.dropOffCount + count }
+            : stop
+        ));
+      });
+    }
 
-  // End session handler
-  const handleEndSession = () => {
-    router.push("/logout")
-  }
+    // Add to revenue
+    setRevenue(prev => prev + totalFare);
 
-  // Handle pickup at current stop
-  const handlePickup = () => {
-    setPickupDialogOpen(true)
-    setPickupCount("")
-    setDropOffs([])
-  }
-
-  // Handle drop-off stop selection for each passenger
-  const handleDropOffChange = (idx: number, value: string) => {
-    setDropOffs(prev => {
-      const updated = [...prev]
-      updated[idx] = { stop: value }
-      return updated
-    })
-  }
-
-  // Move to next stop (including Lavington)
-  const handleNextStop = () => {
-    let stopName = null
-    if (currentStopIndex < stops.length) {
-      stopName = stops[currentStopIndex].name
+    // Move to next passenger or complete
+    const nextPassenger = currentPassenger + 1 + additionalPassengers;
+    
+    if (nextPassenger <= totalPassengers) {
+      setCurrentPassenger(nextPassenger);
+      resetPaymentForm();
     } else {
-      stopName = "Lavington"
-    }
-    const departing = onBoard.filter(p => p.dropOff === stopName)
-    const newDroppedCount = droppedCount + departing.length
-    setDroppedCount(newDroppedCount)
-    setOnBoard(prev => prev.filter(p => p.dropOff !== stopName))
-    // If Lavington was just reached, end trip and show summary
-    if (currentStopIndex >= stops.length) {
-      setTripStarted(false)
-      setShowTripSummary(true)
-    } else {
-      setCurrentStopIndex(idx => idx + 1)
-    }
-  }
-
-  // In the pickup dialog and initial assignment, update drop-off options to include all stops ahead and Lavington
-  const getDropOffOptions = () => {
-    const aheadStops = stops.slice(currentStopIndex + 1).map(s => ({ name: s.name, distance: s.distance }))
-    // Add Lavington as the final drop-off
-    let lavingtonDistance = 0
-    if (stops.length > 0) {
-      const lastStop = stops[stops.length - 1]
-      lavingtonDistance = lastStop.distance + 3
-    }
-    return [
-      ...aheadStops,
-      { name: "Lavington", distance: lavingtonDistance }
-    ]
-  }
-
-  // When trip starts, if there are initial passengers at the first stop, prompt for drop-off assignment
-  useEffect(() => {
-    if (tripStarted && stops.length > 0 && stops[0].passengers > 0) {
-      setInitialCount(stops[0].passengers)
-      setInitialDropOffs(Array(stops[0].passengers).fill({ stop: "" }))
-      setInitialAssignmentOpen(true)
-    }
-  }, [tripStarted, stops])
-
-  // Handle drop-off selection for initial passengers
-  const handleInitialDropOffChange = (idx: number, value: string) => {
-    setInitialDropOffs(prev => {
-      const updated = [...prev]
-      updated[idx] = { stop: value }
-      return updated
-    })
-  }
-
-  // Confirm initial assignment with counters
-  const handleInitialAssignmentConfirm = (e: React.FormEvent) => {
-    e.preventDefault()
-    const count = initialCount
-    if (!count || count < 1) return
-    // Validate total
-    const totalAssigned = Object.values(initialDropOffCounts).reduce((a, b) => a + b, 0)
-    if (totalAssigned !== count) return
-    // Validate capacity
-    if (onBoardCount + count > vehicleCapacity) return
-    const currentDistance = getCurrentStopDistance()
-    const dropOffOptions = getDropOffOptions()
-    let newOnBoard: { dropOff: string }[] = []
-    let fares: { fare: number }[] = []
-    for (const stop of Object.keys(initialDropOffCounts)) {
-      const n = initialDropOffCounts[stop]
-      if (n > 0) {
-        let toDist: number | undefined
-        if (stop === "Lavington") {
-          toDist = (stops.length > 0 ? stops[stops.length - 1].distance + 3 : 0)
-        } else {
-          toDist = dropOffOptions.find(s => s.name === stop)?.distance
-        }
-        if (typeof toDist !== "number" || isNaN(toDist)) toDist = 0
-        for (let i = 0; i < n; ++i) {
-          newOnBoard.push({ dropOff: stop })
-          fares.push({ fare: Math.max(0, toDist - currentDistance) * 5 })
-        }
+      // All passengers processed
+      setShowPaymentDialog(false);
+      
+      // Check if we're at the last stop
+      if (currentStop >= routeStops.length - 1) {
+        setTripStatus("completed");
+        setShowEndDialog(true);
+      } else {
+        setShowPaymentSummary(true);
+        setTimeout(() => setShowPaymentSummary(false), 3000);
       }
     }
-    setFareRecords(prev => [...prev, ...fares])
-    setOnBoard([...onBoard, ...newOnBoard])
-    setStops(prev => prev.map((s, i) =>
-      i === 0 ? { ...s, passengers: 0 } : s
-    ))
-    setInitialAssignmentOpen(false)
-    setInitialDropOffCounts({})
+  };
+
+  // Handle stop progression
+  const handleNextStop = () => {
+    if (currentStop >= routeStops.length - 1) return;
+
+    // Animate travel to next stop
+    setShowTravelAnimation(true);
+    setVehicleStatus("traveling");
+    
+    // Simulate travel time
+    const travelTime = Math.random() * 3000 + 2000; // 2-5 seconds
+    setEtaToNextStop(travelTime / 1000);
+    
+    const travelInterval = setInterval(() => {
+      setTravelProgress(prev => {
+        if (prev >= 100) {
+          clearInterval(travelInterval);
+          return 100;
+        }
+        return prev + 2;
+      });
+    }, travelTime / 50);
+
+    setTimeout(() => {
+      const nextStopIndex = currentStop + 1;
+      setCurrentStop(nextStopIndex);
+      setTripProgress(((nextStopIndex + 1) / routeStops.length) * 100);
+      setTravelProgress(0);
+      setShowTravelAnimation(false);
+      setVehicleStatus("boarding");
+      
+      // Check if this is the final stop
+      if (nextStopIndex >= routeStops.length - 1) {
+        // We've reached the end of the route - show trip summary
+        setTimeout(() => {
+          setTripEndTime(new Date());
+          setTripStatus("completed");
+          setShowEndDialog(true);
+        }, 2000); // Wait 2 seconds after arrival to show summary
+        return;
+      }
+      
+      // Generate waiting passengers for next stop
+      const waitingCount = Math.floor(Math.random() * 8) + 2; // 2-9 passengers
+      setWaitingPassengers(waitingCount);
+      
+      // Check for passengers dropping off at this stop
+      const currentStopData = routeStops[nextStopIndex];
+      if (currentStopData && currentStopData.dropOffCount > 0) {
+        const actualDropOffs = Math.min(currentStopData.dropOffCount, getCurrentPassengerCount());
+        if (actualDropOffs > 0) {
+          animateDropOff(actualDropOffs);
+          
+          // Track total drop-offs
+          setTotalDropOffs(prev => prev + actualDropOffs);
+          
+          // Update the drop-off count (reduce by actual drop-offs)
+          setRouteStops(prev => prev.map((stop, index) => 
+            index === nextStopIndex 
+              ? { ...stop, dropOffCount: Math.max(0, stop.dropOffCount - actualDropOffs) }
+              : stop
+          ));
+        }
+      }
+      
+      // Don't automatically start payment collection - wait for manual boarding
+    }, travelTime);
+  };
+
+  // Handle proceed when full
+  const handleProceedWhenFull = () => {
+    setShowCapacityWarning(false);
+    setShowStopDialog(true);
+    setTimeout(() => setShowStopDialog(false), 3000);
+  };
+
+  // Handle end trip
+  const handleEndTrip = () => {
+    setTripStatus("idle");
+    setCurrentStop(0);
+    setPassengers(0);
+    setRevenue(0);
+    setShiftStatus("on_duty");
+    setShowEndDialog(false);
+    setPassengerAvatars([]);
+    setTripProgress(0);
+    setVehicleStatus("idle");
+    
+    // Reset trip statistics
+    setTotalPassengersServed(0);
+    setTotalDropOffs(0);
+    setTripStartTime(null);
+    setTripEndTime(null);
+  };
+
+  // Get current passenger count
+  const getCurrentPassengerCount = () => {
+    return passengerAvatars.length;
+  };
+
+  // Handle boarding at current stop
+  const handleBoarding = () => {
+    if (waitingPassengers === 0) return;
+    
+    const availableSpace = vehicleCapacity - getCurrentPassengerCount();
+    if (availableSpace <= 0) {
+      setShowCapacityWarning(true);
+      return;
+    }
+    
+    const boardingCount = Math.min(waitingPassengers, availableSpace);
+    animateBoarding(boardingCount);
+    setWaitingPassengers(prev => prev - boardingCount);
+    
+    // Track total passengers served
+    setTotalPassengersServed(prev => prev + boardingCount);
+    
+    // Start payment collection for the passengers that just boarded
+    setTimeout(() => {
+      setShowPaymentDialog(true);
+      setCurrentPassenger(1);
+      setTotalPassengers(boardingCount);
+      resetPaymentForm();
+    }, 2500);
+  };
+
+  // Handle manual drop-off at current stop
+  const handleManualDropOff = () => {
+    const currentStopData = routeStops[currentStop];
+    if (!currentStopData || currentStopData.dropOffCount === 0) return;
+    
+    setTempDropOffCount(currentStopData.dropOffCount);
+    setShowDropOffDialog(true);
+  };
+
+  // Confirm manual drop-off
+  const handleConfirmDropOff = () => {
+    const actualDropOffs = Math.min(tempDropOffCount, getCurrentPassengerCount());
+    if (actualDropOffs > 0) {
+      animateDropOff(actualDropOffs);
+      
+      // Update the drop-off count
+      setRouteStops(prev => prev.map((stop, index) => 
+        index === currentStop 
+          ? { ...stop, dropOffCount: Math.max(0, stop.dropOffCount - actualDropOffs) }
+          : stop
+      ));
+    }
+    
+    setShowDropOffDialog(false);
+  };
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading dashboard...</p>
+        </div>
+      </div>
+    );
   }
 
-  // Handle start new trip
-  const handleStartNewTrip = () => {
-    setShowTripSummary(false)
-    setTripStarted(false)
-    setPassengerCount("")
-    setStops([])
-    setCurrentStopIndex(0)
-    setOnBoard([])
-    setDropOffs([])
-    setFareRecords([])
-    setDroppedCount(0)
-    setPickupCount("")
-    setDropOffCounts({})
-    setInitialDropOffCounts({})
-    setInitialAssignmentOpen(false)
-    setInitialDropOffs([])
-    setInitialCount(0)
+  // Show loading state while checking authentication
+  if (authLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">Loading...</h2>
+          <p className="text-gray-600">Checking authentication...</p>
+        </div>
+      </div>
+    )
   }
 
-  if (loading) return <div className="p-8 text-center">Loading...</div>
-  if (!session) return <div className="p-8 text-center text-red-600">Not logged in</div>
+  // Show error state if authentication failed
+  if (authError) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="text-center">
+          <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">Authentication Error</h2>
+          <p className="text-gray-600 mb-6">{authError}</p>
+          <Button onClick={() => router.push("/login")}>
+            Go to Login
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
+  // Show login prompt if not authenticated
+  if (!user) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="text-center">
+          <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-red-600 mb-2">Not Logged In</h2>
+          <p className="text-gray-600">Please log in to access the driver dashboard.</p>
+          <Button onClick={() => router.push('/login?redirect=/driver/dashboard')} className="mt-4">
+            Go to Login
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="flex min-h-screen flex-col md:flex-row">
-      <SidebarWrapper userType="driver" userName={session.name} userEmail={session.email} />
-
-      <div className="flex-1 flex flex-col">
-        <Header userName={session.name} notificationCount={2} />
-
-        <main className="flex-1 p-6">
-          <div className="max-w-5xl mx-auto space-y-6">
+    <div className="min-h-screen bg-gray-50 flex">
+      <div className="flex-1">
+        <div className="container mx-auto p-6">
+        {/* Header */}
+        <div className="mb-6">
+          <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold">Current Trip</h1>
-              <p className="text-muted-foreground">Monitor and manage your active trip</p>
-            </div>
-
-            {/* Vehicle Info */}
-            {driverVehicle && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Your Vehicle</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex flex-col gap-2">
-                    <div><b>Sacco:</b> {driverVehicle.sacco}</div>
-                    <div><b>Vehicle Reg:</b> {driverVehicle.vehicle}</div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Shift/Trip Actions */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Driver Actions</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {!shiftStarted ? (
-                  <Button className="w-full" onClick={handleStartDriving}>Start Driving</Button>
-                ) : !tripStarted && !showTripSummary ? (
-                  <Button className="w-full" onClick={handleStartTrip}>Start Trip</Button>
-                ) : tripStarted ? (
-                  <div className="text-green-600 font-semibold">Trip in progress with {passengerCount} passengers.</div>
-                ) : null}
-              </CardContent>
-            </Card>
-
-            {/* Trip Dialog */}
-            <Dialog open={showTripDialog} onOpenChange={setShowTripDialog}>
-              <DialogContent>
-                <form onSubmit={handleTripDialogSubmit}>
-                  <DialogHeader>
-                    <DialogTitle>Start Trip</DialogTitle>
-                  </DialogHeader>
-                  <div className="py-4">
-                    <label htmlFor="passengerCount" className="block mb-2">Number of Passengers</label>
-                    <Input
-                      id="passengerCount"
-                      type="number"
-                      min="0"
-                      value={passengerCount}
-                      onChange={e => setPassengerCount(e.target.value)}
-                      required
-                    />
-                  </div>
-                  <DialogFooter>
-                    <Button type="submit">Start Trip</Button>
-                  </DialogFooter>
-                </form>
-              </DialogContent>
-            </Dialog>
-
-            {/* Simulated Passenger List (only when trip started) */}
-            {tripStarted && stops.length > 0 && !showTripSummary && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Passengers Awaiting Pickup</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {/* Do not display CBD Terminal in the pickup list */}
-                  {stops.slice(1).map((stop, idx) => {
-                    const realIdx = idx + 1 // offset for slice
-                    return (
-                      <div key={stop.id} className={`flex justify-between items-center border-b py-2 ${realIdx === currentStopIndex ? 'bg-orange-50' : ''}`}>
-                        <div>
-                          <span className="font-medium">{stop.name}</span>
-                          <span className="ml-2 text-xs text-gray-500">({stop.distance} km)</span>
-                          {realIdx === currentStopIndex && <span className="ml-2 text-xs text-orange-600 font-semibold">Current Stop</span>}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Users className="h-4 w-4 text-orange-500" />
-                          <button
-                            className={`font-bold px-2 py-1 rounded ${realIdx === currentStopIndex && stop.passengers > 0 ? 'bg-orange-500 text-white hover:bg-orange-600' : 'bg-gray-200 text-gray-700 cursor-default'}`}
-                            disabled={realIdx !== currentStopIndex || stop.passengers === 0}
-                            onClick={() => { if (realIdx === currentStopIndex && stop.passengers > 0) handlePickup() }}
-                          >
-                            {stop.passengers}
-                          </button>
-                          <span className="text-xs text-gray-500">awaiting</span>
-                        </div>
-                      </div>
-                    )
-                  })}
-                  {/* On-board passengers list */}
-                  <div className="mt-4">
-                    <div className="font-semibold mb-2">On-board Passengers</div>
-                    {onBoard.length === 0 ? (
-                      <div className="text-gray-500">No passengers on board.</div>
-                    ) : (
-                      <ul className="list-disc ml-6">
-                        {onBoard.map((p, i) => (
-                          <li key={i}>Drop-off: {p.dropOff}</li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                  <div className="flex gap-4 mt-4">
-                    <Button onClick={handleNextStop} disabled={currentStopIndex > stops.length}>Next Stop</Button>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Trip Summary after Lavington */}
-            {showTripSummary && (
-              <Card className="border-2 border-green-500">
-                <CardHeader>
-                  <CardTitle>Trip Complete!</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-lg font-semibold text-green-700 mb-2">Total Revenue: ${totalRevenue}</div>
-                  <div className="text-lg font-semibold text-blue-700 mb-4">Total Passengers Picked: {fareRecords.length}</div>
-                  <Button onClick={handleStartNewTrip}>Start New Trip</Button>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* End Trip and End Session Buttons */}
-            {(tripStarted || shiftStarted) && (
-              <div className="flex gap-4 mt-4">
-                {tripStarted && (
-                  <Button variant="destructive" onClick={handleEndTrip} className="flex-1">End Trip</Button>
-                )}
-                {shiftStarted && (
-                  <Button variant="outline" onClick={handleEndSession} className="flex-1">End Session</Button>
+              <h1 className="text-3xl font-bold text-gray-900">Driver Dashboard</h1>
+              <div className="flex items-center gap-4 mt-2">
+                <Badge variant={shiftStatus === 'on_duty' ? 'default' : 'secondary'}>
+                  {shiftStatus === 'off_duty' ? 'Off Duty' : shiftStatus === 'on_duty' ? 'On Duty' : 'On Trip'}
+                </Badge>
+                {tripStatus !== 'idle' && (
+                  <Badge variant="outline">
+                    {tripStatus === 'boarding' ? 'Boarding' : tripStatus === 'enRoute' ? 'En Route' : 'Completed'}
+                  </Badge>
                 )}
               </div>
-            )}
-
-            <div className="grid gap-6 md:grid-cols-3">
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">Trip ID</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">CBD-LAV-001</div>
-                  <p className="text-xs text-muted-foreground mt-1">Bus ID: KBL 001A</p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">Passengers</CardTitle>
-                </CardHeader>
-                <CardContent className="flex items-baseline justify-between">
-                  <div className="text-2xl font-bold">{passengerCount || 0}/45</div>
-                  <div className="flex items-center gap-1 text-green-600">
-                    <Users className="h-4 w-4" />
-                    <span className="text-sm">{Math.round(((Number(passengerCount) || 0) / 45) * 100)}% Full</span>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">Estimated Arrival</CardTitle>
-                </CardHeader>
-                <CardContent className="flex items-baseline justify-between">
-                  <div className="text-2xl font-bold">10:30 AM</div>
-                  <div className="flex items-center gap-1 text-orange-600">
-                    <Clock className="h-4 w-4" />
-                    <span className="text-sm">On Time</span>
-                  </div>
-                </CardContent>
-              </Card>
             </div>
+            
+            {/* Performance Toggle Button */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowPerformanceSidebar(!showPerformanceSidebar)}
+              className="flex items-center gap-2"
+            >
+              <BarChart3 className="w-4 h-4" />
+              {showPerformanceSidebar ? 'Hide' : 'Show'} Performance
+            </Button>
+          </div>
+          
+          {/* Driver Info */}
+          {driverData && vehicleData && (
+            <div className="mt-4 p-4 bg-white rounded-lg border shadow-sm">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div>
+                  <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                    <UserCircle2 className="h-4 w-4" />
+                    Driver
+                  </h3>
+                  <p className="text-gray-600 font-medium">{driverData.firstName} {driverData.lastName}</p>
+                  <p className="text-sm text-gray-500">{driverData.email}</p>
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                    <UsersRound className="h-4 w-4" />
+                    Sacco
+                  </h3>
+                  <p className="text-gray-600 font-medium">{driverData.sacco}</p>
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                    <Bus className="h-4 w-4" />
+                    Vehicle
+                  </h3>
+                  <p className="text-gray-600 font-medium">{vehicleData.name}</p>
+                  <p className="text-sm text-gray-500">{vehicleData.regNumber}</p>
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                    <Navigation className="h-4 w-4" />
+                    Route
+                  </h3>
+                  <p className="text-gray-600 font-medium">
+                    {routeStops.length > 0 ? 
+                      `${routeStops[0].name} → ${routeStops[routeStops.length - 1].name}` : 
+                      'Route not defined'
+                    }
+                  </p>
+                  <p className="text-sm text-gray-500">{routeStops.length} stops</p>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Trip Progress</CardTitle>
-                <CardDescription>CBD Terminal to Lavington • 10 km</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex justify-between text-sm">
-                    <div className="flex items-center gap-1">
-                      <MapPin className="h-4 w-4 text-gray-500" />
-                      <span>CBD Terminal</span>
+        {/* Route Details */}
+        {routeStops.length > 0 && (
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Navigation className="h-5 w-5" />
+                Route Details
+              </CardTitle>
+              <CardDescription>
+                Complete route for {driverData?.sacco} - {routeStops.length} stops
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {/* Route Overview */}
+                <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <MapPin className="h-4 w-4 text-blue-600" />
+                    <span className="font-medium text-blue-800">
+                      {routeStops[0].name} → {routeStops[routeStops.length - 1].name}
+                    </span>
+                  </div>
+                  <Badge variant="outline" className="text-blue-700">
+                    {routeStops.length} stops
+                  </Badge>
+                </div>
+
+                {/* Route Stops */}
+                <div className="space-y-2">
+                  <h4 className="font-medium text-gray-900">All Stops:</h4>
+                  <div className="grid gap-2">
+                    {routeStops.map((stop, index) => (
+                      <div 
+                        key={index}
+                        className={`flex items-center justify-between p-3 rounded-lg border transition-all duration-300 ${
+                          index === currentStop 
+                            ? 'bg-blue-100 border-blue-300 shadow-sm' 
+                            : index < currentStop 
+                            ? 'bg-green-50 border-green-200' 
+                            : 'bg-gray-50 border-gray-200'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                            index === currentStop 
+                              ? 'bg-blue-500 text-white animate-pulse' 
+                              : index < currentStop 
+                              ? 'bg-green-500 text-white' 
+                              : 'bg-gray-300 text-gray-600'
+                          }`}>
+                            {index + 1}
+                          </div>
+                          <div>
+                            <div className="font-medium text-gray-900">{stop.name}</div>
+                            <div className="text-sm text-gray-500">
+                              Distance: {stop.distance} km
+                              {stop.dropOffCount > 0 && (
+                                <span className="ml-2 text-red-600">
+                                  • {stop.dropOffCount} drop-offs
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {index === currentStop && (
+                            <Badge className="bg-blue-600">Current</Badge>
+                          )}
+                          {index < currentStop && (
+                            <Badge variant="outline" className="text-green-700 border-green-300">
+                              Completed
+                            </Badge>
+                          )}
+                          {index > currentStop && (
+                            <Badge variant="outline" className="text-gray-500">
+                              Pending
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Trip Progress Bar */}
+        {tripStatus !== 'idle' && (
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Bus className="h-5 w-5" />
+                Trip Progress
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {/* Main Progress Bar */}
+                <div className="relative">
+                  <div className="w-full bg-gray-200 rounded-full h-4">
+                    <div 
+                      className="bg-gradient-to-r from-blue-500 to-green-500 h-4 rounded-full transition-all duration-1000 ease-out shadow-lg"
+                      style={{ width: `${tripProgress}%` }}
+                    ></div>
+                    <Bus 
+                      className="absolute top-1/2 -translate-y-1/2 w-6 h-6 text-blue-800 animate-bounce" 
+                      style={{ left: `calc(${tripProgress}% - 12px)` }} 
+                    />
+                  </div>
+                  <div className="flex justify-between text-sm text-gray-600 mt-2">
+                    <span>Progress</span>
+                    <span>{Math.round(tripProgress)}%</span>
+                  </div>
+                </div>
+
+                {/* Vehicle Status */}
+                <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <div className={`w-3 h-3 rounded-full animate-pulse ${
+                      vehicleStatus === 'idle' ? 'bg-gray-400' :
+                      vehicleStatus === 'boarding' ? 'bg-yellow-400' :
+                      vehicleStatus === 'traveling' ? 'bg-green-400' :
+                      'bg-red-400'
+                    }`}></div>
+                    <span className="font-medium capitalize">{vehicleStatus}</span>
+                  </div>
+                  {vehicleStatus === 'traveling' && (
+                    <div className="flex items-center gap-2">
+                      <Zap className="w-4 h-4 text-green-600" />
+                      <span className="text-sm">{currentSpeed} km/h</span>
                     </div>
-                    <div>{tripProgress}% Complete</div>
-                    <div className="flex items-center gap-1">
-                      <MapPin className="h-4 w-4 text-gray-500" />
-                      <span>Lavington</span>
+                  )}
+                </div>
+
+                {/* Travel Animation */}
+                {showTravelAnimation && (
+                  <div className="relative w-full bg-gray-100 rounded-lg h-8 overflow-hidden">
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <span className="text-sm font-medium text-gray-700">Traveling to next stop...</span>
+                    </div>
+                    <div 
+                      className="absolute top-0 left-0 h-full bg-gradient-to-r from-blue-400 to-green-400 transition-all duration-5000 ease-linear"
+                      style={{ width: `${travelProgress}%` }}
+                    ></div>
+                    <Bus 
+                      className="absolute top-1/2 -translate-y-1/2 w-6 h-6 text-blue-800 animate-pulse" 
+                      style={{ left: `calc(${travelProgress}% - 12px)` }} 
+                    />
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Main Dashboard Grid */}
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {/* Vehicle Status */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="h-5 w-5" />
+                Vehicle Status
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {/* Capacity Visualization */}
+                <div className="flex justify-between items-center">
+                  <span>Passengers:</span>
+                  <span className="flex items-center gap-2">
+                    {getCurrentPassengerCount()} / {vehicleCapacity}
+                    <div className="flex gap-1">
+                      {[...Array(vehicleCapacity)].map((_, i) => (
+                        <span 
+                          key={i} 
+                          className={`w-3 h-3 rounded-full border transition-all duration-300 ${
+                            i < getCurrentPassengerCount() ? 'bg-green-400 border-green-500 scale-110' : 'bg-gray-200 border-gray-300'
+                          }`}
+                        ></span>
+                      ))}
+                    </div>
+                  </span>
+                </div>
+
+                {/* Status */}
+                <div className="flex justify-between">
+                  <span>Status:</span>
+                  <span className={getStatusColor(getCapacityStatus())}>
+                    {getCapacityStatus()}
+                  </span>
+                </div>
+
+                {/* Available Space */}
+                <div className="flex justify-between">
+                  <span>Available:</span>
+                  <span className="font-medium">{vehicleCapacity - getCurrentPassengerCount()}</span>
+                </div>
+
+                {/* Capacity Warning */}
+                {getCurrentPassengerCount() >= vehicleCapacity && (
+                  <div className="p-3 bg-red-50 rounded-lg border border-red-200">
+                    <div className="flex items-center gap-2 text-red-700">
+                      <AlertCircle className="w-4 h-4 animate-pulse" />
+                      <span className="text-sm font-medium">Vehicle at full capacity!</span>
+                    </div>
+                    <div className="text-xs text-red-600 mt-1">
+                      No more passengers can be picked up until some exit.
                     </div>
                   </div>
-                  <Progress value={tripProgress} className="h-2" />
-                  <div className="mt-2 text-lg font-semibold text-green-700">Revenue Collected: ${totalRevenue}</div>
+                )}
 
-                  <div className="pt-4 grid gap-4 md:grid-cols-2">
-                    <div className="border rounded-lg p-4">
-                      <div className="flex justify-between items-center mb-2">
-                        <h3 className="font-medium">Current Location</h3>
-                        <div className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded">Live</div>
+                {/* Passenger Avatars */}
+                <div className="mt-4">
+                  <div className="text-sm font-medium mb-2">Onboard Passengers:</div>
+                  <div className="flex flex-wrap gap-1 min-h-[32px]">
+                    {passengerAvatars.map((color, index) => (
+                      <div
+                        key={index}
+                        className={`w-6 h-6 rounded-full ${color} animate-pulse transition-all duration-300`}
+                        style={{ animationDelay: `${index * 100}ms` }}
+                      ></div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Boarding Animation */}
+                {showBoardingAnimation && (
+                  <div className="mt-2 p-2 bg-yellow-50 rounded-lg border border-yellow-200">
+                    <div className="flex items-center gap-2 text-yellow-800">
+                      <UsersRound className="w-4 h-4 animate-pulse" />
+                      <span className="text-sm font-medium">Boarding passengers...</span>
+                    </div>
+                    <div className="flex gap-1 mt-1">
+                      {boardingPassengers.map((color, index) => (
+                        <div
+                          key={index}
+                          className={`w-4 h-4 rounded-full ${color} animate-bounce`}
+                          style={{ animationDelay: `${index * 200}ms` }}
+                        ></div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Drop-off Animation */}
+                {showDropOffAnimation && (
+                  <div className="mt-2 p-2 bg-red-50 rounded-lg border border-red-200">
+                    <div className="flex items-center gap-2 text-red-800">
+                      <Users className="w-4 h-4 animate-pulse" />
+                      <span className="text-sm font-medium">Passengers exiting...</span>
+                    </div>
+                    <div className="flex gap-1 mt-1">
+                      {droppingPassengers.map((color, index) => (
+                        <div
+                          key={index}
+                          className={`w-4 h-4 rounded-full ${color} animate-ping`}
+                          style={{ animationDelay: `${index * 150}ms` }}
+                        ></div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Current Location */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <MapPin className="h-5 w-5" />
+                Current Location
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                <div className="text-2xl font-bold text-blue-600 mb-2">
+                  {routeStops[currentStop]?.name || "Terminal"}
+                </div>
+                <p className="text-gray-600">Stop {currentStop + 1} of {routeStops.length}</p>
+                <div className="text-sm text-gray-500">
+                  Distance: {routeStops[currentStop]?.distance || 0} km
+                </div>
+                
+                {/* Current Stop Indicator */}
+                <div className="flex items-center gap-2 p-2 bg-blue-50 rounded-lg">
+                  <div className="w-3 h-3 bg-blue-500 rounded-full animate-pulse"></div>
+                  <span className="text-sm font-medium text-blue-700">Currently at this stop</span>
+                </div>
+
+                {/* Drop-off Information */}
+                {routeStops[currentStop]?.dropOffCount > 0 && (
+                  <div className="mt-3 p-3 bg-red-50 rounded-lg border border-red-200">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <Users className="w-4 h-4 text-red-700" />
+                        <span className="text-sm font-medium text-red-800">Passengers Dropping Off</span>
                       </div>
-                      <p className="text-gray-600">Westlands</p>
-                      <div className="mt-2 text-sm text-gray-500">Last updated: 5 minutes ago</div>
+                      <span className="text-lg font-bold text-red-700">{routeStops[currentStop]?.dropOffCount}</span>
+                    </div>
+                    
+                    {/* Drop-off Button */}
+                    <Button 
+                      onClick={handleManualDropOff}
+                      size="sm"
+                      className="w-full bg-red-600 hover:bg-red-700 text-white"
+                      disabled={getCurrentPassengerCount() === 0}
+                    >
+                      {getCurrentPassengerCount() === 0 ? 'No Passengers' : 'Process Drop-offs'}
+                    </Button>
+                  </div>
+                )}
+
+                {/* Waiting Passengers */}
+                {waitingPassengers > 0 && (
+                  <div className="mt-3 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <UsersRound className="w-4 h-4 text-yellow-700" />
+                        <span className="text-sm font-medium text-yellow-800">Waiting Passengers</span>
+                      </div>
+                      <span className="text-lg font-bold text-yellow-700">{waitingPassengers}</span>
+                    </div>
+                    
+                    {/* Waiting Passenger Icons */}
+                    <div className="flex gap-1 mb-2">
+                      {Array.from({ length: Math.min(waitingPassengers, 8) }).map((_, i) => (
+                        <div
+                          key={i}
+                          className="w-4 h-4 rounded-full bg-yellow-400 animate-pulse"
+                          style={{ animationDelay: `${i * 100}ms` }}
+                        ></div>
+                      ))}
+                      {waitingPassengers > 8 && (
+                        <span className="text-xs text-yellow-600">+{waitingPassengers - 8} more</span>
+                      )}
                     </div>
 
-                    <div className="border rounded-lg p-4">
-                      <div className="flex justify-between items-center mb-2">
-                        <h3 className="font-medium">Next Stop</h3>
-                        <div className="text-xs bg-orange-100 text-orange-800 px-2 py-0.5 rounded">10 min</div>
+                    {/* Boarding Button */}
+                    <Button 
+                      onClick={handleBoarding}
+                      size="sm"
+                      className="w-full bg-yellow-600 hover:bg-yellow-700 text-white"
+                      disabled={getCurrentPassengerCount() >= vehicleCapacity}
+                    >
+                      {getCurrentPassengerCount() >= vehicleCapacity ? 'Vehicle Full' : 'Board Passengers'}
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Next Stop */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Navigation className="h-5 w-5" />
+                Next Stop
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                <div className="text-2xl font-bold text-orange-600 mb-2">
+                  {currentStop < routeStops.length - 1 ? routeStops[currentStop + 1]?.name : "End of Route"}
+                </div>
+                {currentStop < routeStops.length - 1 && (
+                  <div className="text-sm text-gray-500">
+                    Distance: {(routeStops[currentStop + 1]?.distance || 0) - (routeStops[currentStop]?.distance || 0)} km
+                  </div>
+                )}
+                
+                {/* ETA */}
+                {vehicleStatus === 'traveling' && (
+                  <div className="flex items-center gap-2 p-2 bg-orange-50 rounded-lg">
+                    <Clock className="w-4 h-4 text-orange-600" />
+                    <span className="text-sm font-medium text-orange-700">
+                      ETA: {Math.max(0, Math.ceil((100 - travelProgress) / 10))} min
+                    </span>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Revenue */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <DollarSign className="h-5 w-5" />
+                Revenue
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                <div className="text-3xl font-bold text-green-600 animate-pulse">
+                  KSh {revenue}
+                </div>
+                <p className="text-sm text-gray-500">Total trip revenue</p>
+                
+                {/* Revenue Animation */}
+                {revenue > 0 && (
+                  <div className="flex items-center gap-2 p-2 bg-green-50 rounded-lg">
+                    <TrendingUp className="w-4 h-4 text-green-600 animate-bounce" />
+                    <span className="text-sm font-medium text-green-700">Revenue increasing!</span>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Actions */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Actions</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {shiftStatus === 'off_duty' && (
+                  <Button onClick={handleStartShift} className="w-full">
+                    Start Shift
+                  </Button>
+                )}
+                
+                {shiftStatus === 'on_duty' && tripStatus === 'idle' && (
+                  <Button onClick={() => setShowStartDialog(true)} className="w-full">
+                    Start Trip
+                  </Button>
+                )}
+                
+                {tripStatus === 'enRoute' && (
+                  <Button 
+                    onClick={handleNextStop} 
+                    className="w-full"
+                    disabled={showTravelAnimation}
+                  >
+                    {showTravelAnimation ? 'Traveling...' : 'Next Stop'}
+                  </Button>
+                )}
+                
+                {shiftStatus !== 'off_duty' && (
+                  <Button onClick={handleEndShift} variant="outline" className="w-full">
+                    End Shift
+                  </Button>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Trip Stats */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <TrendingUp className="h-5 w-5" />
+                Trip Stats
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                <div className="flex justify-between">
+                  <span>Stops Completed:</span>
+                  <span className="font-medium">{currentStop}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Total Passengers:</span>
+                  <span className="font-medium">{getCurrentPassengerCount()}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Average Fare:</span>
+                  <span className="font-medium">
+                    KSh {getCurrentPassengerCount() > 0 ? Math.round(revenue / getCurrentPassengerCount()) : 0}
+                  </span>
+                </div>
+                
+                {/* Efficiency Indicator */}
+                <div className="mt-3 p-2 bg-blue-50 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                    <span className="text-sm font-medium text-blue-700">Trip running efficiently</span>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Route Overview */}
+        <Card className="mt-6">
+          <CardHeader>
+            <CardTitle>Route Overview</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {routeStops.map((stop, index) => (
+                <div 
+                  key={index} 
+                  className={`flex items-center gap-3 p-3 rounded-lg border transition-all duration-300 ${
+                    index === currentStop 
+                      ? 'bg-blue-50 border-blue-200 shadow-lg scale-105' 
+                      : index < currentStop 
+                        ? 'bg-green-50 border-green-200' 
+                        : 'bg-gray-50 border-gray-200'
+                  }`}
+                >
+                  <div className={`w-3 h-3 rounded-full transition-all duration-300 ${
+                    index === currentStop 
+                      ? 'bg-blue-500 animate-pulse' 
+                      : index < currentStop 
+                        ? 'bg-green-500' 
+                        : 'bg-gray-300'
+                  }`}></div>
+                  <div className="flex-1">
+                    <div className="font-medium flex items-center gap-2">
+                      {stop.name}
+                      {index === currentStop && <ArrowRight className="w-4 h-4 text-blue-500 animate-bounce" />}
+                    </div>
+                    <div className="text-sm text-gray-600">
+                      {stop.distance} km • KSh {calculateFare(index)}
+                    </div>
+                    {/* Drop-off Count */}
+                    {stop.dropOffCount > 0 && (
+                      <div className="mt-1">
+                        <Badge variant="destructive" className="text-xs">
+                          Drop-off: {stop.dropOffCount}
+                        </Badge>
                       </div>
-                      <p className="text-gray-600">Kileleshwa</p>
-                      <div className="mt-2 text-sm text-gray-500">Scheduled arrival: 10:20 AM</div>
+                    )}
+                  </div>
+                  {index === currentStop && (
+                    <Badge className="bg-blue-100 text-blue-800 animate-pulse">Current</Badge>
+                  )}
+                  {index < currentStop && (
+                    <Badge className="bg-green-100 text-green-800">Completed</Badge>
+                  )}
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Start Trip Dialog */}
+        <Dialog open={showStartDialog} onOpenChange={setShowStartDialog}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Start New Trip</DialogTitle>
+              <DialogDescription>
+                Begin passenger pickup and start your journey
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="p-4 bg-blue-50 rounded-lg text-center">
+                <PlayCircle className="h-12 w-12 text-blue-500 mx-auto mb-2 animate-pulse" />
+                <p className="text-blue-700">Ready to start your trip?</p>
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => setShowStartDialog(false)} className="flex-1">
+                  Cancel
+                </Button>
+                <Button onClick={handleStartTrip} className="flex-1">
+                  Start Trip
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Payment Dialog */}
+        <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Passenger Payment</DialogTitle>
+              <DialogDescription>
+                Passenger {currentPassenger} of {totalPassengers}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="p-3 bg-blue-50 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <UserCircle2 className="h-5 w-5 text-blue-600 animate-pulse" />
+                  <span className="font-medium">Passenger {currentPassenger}</span>
+                </div>
+                <div className="text-sm text-blue-600 mt-1">
+                  {totalPassengers - currentPassenger + 1} passengers remaining to process
+                </div>
+              </div>
+
+              <div>
+                <Label className="block mb-2">Destination:</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  {routeStops.slice(currentStop + 1).map(stop => (
+                    <Button
+                      key={stop.name}
+                      variant={passengerDropOff === stop.name ? 'default' : 'outline'}
+                      onClick={() => setPassengerDropOff(stop.name)}
+                      className="justify-start transition-all duration-200 hover:scale-105"
+                    >
+                      <div className="text-left">
+                        <div className="font-medium">{stop.name}</div>
+                        <div className="text-xs text-gray-500">KSh {calculateFare(routeStops.findIndex(s => s.name === stop.name))}</div>
+                      </div>
+                    </Button>
+                  ))}
+                </div>
+              </div>
+
+              {passengerDropOff && (
+                <div className="p-3 bg-green-50 rounded-lg animate-pulse">
+                  <div className="text-center">
+                    <div className="font-medium text-green-900">Fare:</div>
+                    <div className="text-2xl font-bold text-green-600">
+                      KSh {calculateFare(routeStops.findIndex(stop => stop.name === passengerDropOff))}
                     </div>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+              )}
 
-            <div className="grid gap-6 md:grid-cols-2">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Trip Details</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">Route</span>
-                      <span className="font-medium">CBD Terminal - Lavington</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">Departure</span>
-                      <span className="font-medium">10:00 AM, Today</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">Arrival</span>
-                      <span className="font-medium">10:30 AM, Today</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">Distance</span>
-                      <span className="font-medium">12 km</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">Driver</span>
-                      <span className="font-medium">{session.name}</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+              <div className="flex items-center space-x-2">
+                <Checkbox 
+                  id="pay-for-others" 
+                  checked={payForOthers} 
+                  onCheckedChange={(checked) => setPayForOthers(checked === true)} 
+                />
+                <Label htmlFor="pay-for-others">Paying for others</Label>
+              </div>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle>Quick Actions</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid gap-4">
-                    <Button className="w-full">
-                      <Bus className="mr-2 h-4 w-4" />
-                      Update Trip Status
-                    </Button>
-                    <Button variant="outline" className="w-full">
-                      <Users className="mr-2 h-4 w-4" />
-                      View Passenger List
-                    </Button>
-                    <Button variant="outline" className="w-full">
-                      <Clock className="mr-2 h-4 w-4" />
-                      Update ETA
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Pickup Dialog */}
-            <Dialog open={pickupDialogOpen} onOpenChange={setPickupDialogOpen}>
-              <DialogContent>
-                <form onSubmit={handlePickupConfirm}>
-                  <DialogHeader>
-                    <DialogTitle>Pick Up Passengers at {stops[currentStopIndex]?.name}</DialogTitle>
-                  </DialogHeader>
-                  <div className="py-4 space-y-4">
-                    <label htmlFor="pickupCount" className="block mb-2">How many passengers are you picking up?</label>
+              {payForOthers && (
+                <div className="space-y-3">
+                  <div>
+                    <Label htmlFor="others-count">Number of additional passengers:</Label>
                     <Input
-                      id="pickupCount"
+                      id="others-count"
                       type="number"
                       min="1"
-                      max={stops[currentStopIndex]?.passengers || 1}
-                      value={pickupCount}
-                      onChange={e => {
-                        setPickupCount(e.target.value)
-                        setDropOffs(Array(Number(e.target.value) || 0).fill({ stop: "" }))
-                      }}
-                      required
+                      max={totalPassengers - currentPassenger}
+                      value={othersCount}
+                      onChange={(e) => setOthersCount(Math.max(1, Math.min(parseInt(e.target.value) || 1, totalPassengers - currentPassenger)))}
+                      className="mt-1"
                     />
-                    {Number(pickupCount) > 0 && (
-                      <div className="space-y-2">
-                        <div className="font-medium">Assign drop-off count for each stop:</div>
-                        {getDropOffOptions().map((s) => {
-                          const value = dropOffCounts[s.name] || 0
-                          const fare = Math.max(0, s.distance - getCurrentStopDistance()) * 5
-                          return (
-                            <div key={s.name} className="flex items-center gap-2">
-                              <span>{s.name}:</span>
-                              <Input
-                                type="number"
-                                min={0}
-                                max={Number(pickupCount) - Object.values(dropOffCounts).reduce((a, b) => a + b, 0) + value}
-                                value={value}
-                                onChange={e => handleDropOffCountChange(s.name, Math.max(0, Math.min(Number(e.target.value), Number(pickupCount) - Object.values(dropOffCounts).reduce((a, b) => a + b, 0) + value)))}
-                                className="w-20"
-                              />
-                              <span className="ml-2 text-green-700 font-semibold">${fare}</span>
-                            </div>
-                          )
-                        })}
-                        <div className="text-sm mt-2">Total assigned: {Object.values(dropOffCounts).reduce((a, b) => a + b, 0)} / {pickupCount}</div>
-                        <div className="text-sm text-gray-500">Remaining vehicle capacity: {vehicleCapacity - onBoardCount}</div>
-                      </div>
-                    )}
+                    <div className="text-xs text-gray-500 mt-1">
+                      Maximum: {totalPassengers - currentPassenger} additional passengers
+                    </div>
                   </div>
-                  <DialogFooter>
-                    <Button type="submit" disabled={
-                      !pickupCount ||
-                      Object.values(dropOffCounts).reduce((a, b) => a + b, 0) !== Number(pickupCount) ||
-                      (onBoardCount + Number(pickupCount)) > vehicleCapacity ||
-                      Object.values(dropOffCounts).some(v => isNaN(v) || v < 0)
-                    }>Confirm Pickup</Button>
-                  </DialogFooter>
-                </form>
-              </DialogContent>
-            </Dialog>
 
-            {/* Initial Assignment Dialog */}
-            <Dialog open={initialAssignmentOpen} onOpenChange={() => {}}>
-              <DialogContent>
-                <form onSubmit={handleInitialAssignmentConfirm}>
-                  <DialogHeader>
-                    <DialogTitle>Assign Drop-off for Initial Passengers at {stops[0]?.name}</DialogTitle>
-                  </DialogHeader>
-                  <div className="py-4 space-y-2">
-                    <div className="font-medium">Assign drop-off count for each stop:</div>
-                    {initialCount > 0 && (
-                      <div className="space-y-2">
-                        {getDropOffOptions().map((s) => {
-                          const value = initialDropOffCounts[s.name] || 0
-                          const fare = Math.max(0, s.distance - getCurrentStopDistance()) * 5
-                          return (
-                            <div key={s.name} className="flex items-center gap-2">
-                              <span>{s.name}:</span>
-                              <Input
-                                type="number"
-                                min={0}
-                                max={initialCount - Object.values(initialDropOffCounts).reduce((a, b) => a + b, 0) + value}
-                                value={value}
-                                onChange={e => handleInitialDropOffCountChange(s.name, Math.max(0, Math.min(Number(e.target.value), initialCount - Object.values(initialDropOffCounts).reduce((a, b) => a + b, 0) + value)))}
-                                className="w-20"
-                              />
-                              <span className="ml-2 text-green-700 font-semibold">${fare}</span>
-                            </div>
-                          )
-                        })}
-                        <div className="text-sm mt-2">Total assigned: {Object.values(initialDropOffCounts).reduce((a, b) => a + b, 0)} / {initialCount}</div>
-                        <div className="text-sm text-gray-500">Remaining vehicle capacity: {vehicleCapacity - onBoardCount}</div>
+                  <div>
+                    <Label className="block mb-2">Assign destinations:</Label>
+                    {routeStops.slice(currentStop + 1).map(stop => (
+                      <div key={stop.name} className="flex items-center gap-2 mb-2">
+                        <Label className="text-sm min-w-[120px]">{stop.name}:</Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          max={Math.min(othersCount, totalPassengers - currentPassenger)}
+                          value={othersDropOffs[stop.name] || 0}
+                          onChange={(e) => {
+                            const newValue = Math.max(0, parseInt(e.target.value) || 0);
+                            const currentTotal = Object.values(othersDropOffs).reduce((sum, count) => sum + count, 0) - (othersDropOffs[stop.name] || 0);
+                            const maxAllowed = Math.min(othersCount, totalPassengers - currentPassenger - currentTotal);
+                            
+                            setOthersDropOffs(prev => ({
+                              ...prev,
+                              [stop.name]: Math.min(newValue, maxAllowed)
+                            }));
+                          }}
+                          className="w-16"
+                        />
                       </div>
-                    )}
+                    ))}
                   </div>
-                  <DialogFooter>
-                    <Button type="submit" disabled={
-                      Object.values(initialDropOffCounts).reduce((a, b) => a + b, 0) !== initialCount ||
-                      (onBoardCount + initialCount) > vehicleCapacity ||
-                      Object.values(initialDropOffCounts).some(v => isNaN(v) || v < 0)
-                    }>Confirm</Button>
-                  </DialogFooter>
-                </form>
-              </DialogContent>
-            </Dialog>
-          </div>
-        </main>
+
+                  {Object.values(othersDropOffs).reduce((sum, count) => sum + count, 0) > 0 && (
+                    <div className="p-3 bg-yellow-50 rounded-lg animate-pulse">
+                      <div className="text-sm">
+                        <div className="font-medium text-yellow-900">Additional fare:</div>
+                        <div className="text-lg font-bold text-yellow-700">
+                          KSh {Object.entries(othersDropOffs).reduce((sum, [stopName, count]) => {
+                            const stopIndex = routeStops.findIndex(stop => stop.name === stopName);
+                            return sum + (calculateFare(stopIndex) * count);
+                          }, 0)}
+                        </div>
+                        <div className="text-xs text-yellow-700 mt-1">
+                          This will skip {Object.values(othersDropOffs).reduce((sum, count) => sum + count, 0)} passengers in the payment queue
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div>
+                <Label htmlFor="amount-received">Amount received (KSh):</Label>
+                <Input
+                  id="amount-received"
+                  type="number"
+                  min="0"
+                  step="10"
+                  value={amountReceived}
+                  onChange={(e) => setAmountReceived(e.target.value)}
+                  placeholder="Enter amount"
+                  className="mt-1"
+                />
+              </div>
+
+              {amountReceived && passengerDropOff && (
+                <div className="p-3 bg-blue-50 rounded-lg">
+                  <div className="space-y-1 text-sm">
+                    <div className="flex justify-between">
+                      <span>Required:</span>
+                      <span>KSh {calculateFare(routeStops.findIndex(stop => stop.name === passengerDropOff)) + (payForOthers ? Object.entries(othersDropOffs).reduce((sum, [stopName, count]) => {
+                        const stopIndex = routeStops.findIndex(stop => stop.name === stopName);
+                        return sum + (calculateFare(stopIndex) * count);
+                      }, 0) : 0)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Received:</span>
+                      <span>KSh {parseFloat(amountReceived) || 0}</span>
+                    </div>
+                    <div className="flex justify-between font-medium">
+                      <span>Change:</span>
+                      <span className={((parseFloat(amountReceived) || 0) - (calculateFare(routeStops.findIndex(stop => stop.name === passengerDropOff)) + (payForOthers ? Object.entries(othersDropOffs).reduce((sum, [stopName, count]) => {
+                          const stopIndex = routeStops.findIndex(stop => stop.name === stopName);
+                          return sum + (calculateFare(stopIndex) * count);
+                        }, 0) : 0))) >= 0 ? 'text-green-600' : 'text-red-600'}>
+                        KSh {((parseFloat(amountReceived) || 0) - (calculateFare(routeStops.findIndex(stop => stop.name === passengerDropOff)) + (payForOthers ? Object.entries(othersDropOffs).reduce((sum, [stopName, count]) => {
+                          const stopIndex = routeStops.findIndex(stop => stop.name === stopName);
+                          return sum + (calculateFare(stopIndex) * count);
+                        }, 0) : 0))).toFixed(0)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex items-center space-x-2">
+                <Checkbox 
+                  id="payment-confirmed" 
+                  checked={paymentConfirmed} 
+                  onCheckedChange={(checked) => setPaymentConfirmed(checked === true)} 
+                />
+                <Label htmlFor="payment-confirmed">Payment confirmed and change given</Label>
+              </div>
+
+              <Button 
+                onClick={handlePaymentConfirm} 
+                disabled={!passengerDropOff || !paymentConfirmed}
+                className="w-full"
+              >
+                Confirm Payment
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Payment Summary Dialog */}
+        <Dialog open={showPaymentSummary} onOpenChange={setShowPaymentSummary}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Payment Complete</DialogTitle>
+              <DialogDescription>
+                All passengers have been processed
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="p-4 bg-green-50 rounded-lg text-center">
+                <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-2 animate-bounce" />
+                <p className="text-green-700 font-medium">All payments processed!</p>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Stop Summary Dialog */}
+        <Dialog open={showStopDialog} onOpenChange={setShowStopDialog}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Stop Summary</DialogTitle>
+              <DialogDescription>
+                Passengers dropped off and picked up
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="p-4 bg-green-50 rounded-lg text-center">
+                <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-2 animate-bounce" />
+                <p className="text-green-700">Stop completed successfully!</p>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* End Trip Dialog */}
+        <Dialog open={showEndDialog} onOpenChange={setShowEndDialog}>
+          <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <CheckCircle className="h-6 w-6 text-green-500" />
+                Trip Complete - Summary
+              </DialogTitle>
+              <DialogDescription>
+                Final summary for your completed trip
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-6">
+              {/* Success Header */}
+              <div className="p-6 bg-gradient-to-r from-green-50 to-blue-50 rounded-lg text-center border border-green-200">
+                <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-3 animate-bounce" />
+                <h3 className="text-xl font-bold text-green-700 mb-2">Trip Completed Successfully!</h3>
+                <p className="text-green-600">Great job! All passengers have been safely transported.</p>
+              </div>
+
+              {/* Trip Statistics Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Revenue Summary */}
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                      <DollarSign className="h-5 w-5 text-green-600" />
+                      Revenue Summary
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600">Total Revenue:</span>
+                      <span className="text-2xl font-bold text-green-600">KSh {revenue}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Total Passengers Served:</span>
+                      <span className="font-medium">{totalPassengersServed}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Total Drop-offs:</span>
+                      <span className="font-medium">{totalDropOffs}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Average Fare:</span>
+                      <span className="font-medium">
+                        KSh {totalPassengersServed > 0 ? Math.round(revenue / totalPassengersServed) : 0}
+                      </span>
+                    </div>
+                    <div className="pt-2 border-t">
+                      <div className="text-sm text-gray-500">
+                        Revenue per stop: KSh {Math.round(revenue / routeStops.length)}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Trip Details */}
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                      <Bus className="h-5 w-5 text-blue-600" />
+                      Trip Details
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Route:</span>
+                      <span className="font-medium">{routeStops[0]?.name} → {routeStops[routeStops.length - 1]?.name}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Stops Completed:</span>
+                      <span className="font-medium">{routeStops.length} / {routeStops.length}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Total Distance:</span>
+                      <span className="font-medium">{routeStops[routeStops.length - 1]?.distance || 0} km</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Trip Duration:</span>
+                      <span className="font-medium">
+                        {tripStartTime && tripEndTime ? 
+                          `${Math.round((tripEndTime.getTime() - tripStartTime.getTime()) / 60000)} min` : 
+                          'N/A'
+                        }
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Vehicle:</span>
+                      <span className="font-medium">{vehicleData?.name} ({vehicleData?.regNumber})</span>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Route Breakdown */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <MapPin className="h-5 w-5 text-purple-600" />
+                    Route Breakdown
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {routeStops.map((stop, index) => (
+                      <div 
+                        key={index} 
+                        className={`flex items-center gap-3 p-3 rounded-lg border transition-all duration-300 ${
+                          index === routeStops.length - 1 
+                            ? 'bg-green-50 border-green-200' 
+                            : 'bg-gray-50 border-gray-200'
+                        }`}
+                      >
+                        <div className={`w-3 h-3 rounded-full ${
+                          index === routeStops.length - 1 
+                            ? 'bg-green-500' 
+                            : 'bg-gray-400'
+                        }`}></div>
+                        <div className="flex-1">
+                          <div className="font-medium flex items-center gap-2">
+                            {stop.name}
+                            {index === routeStops.length - 1 && (
+                              <Badge className="bg-green-100 text-green-800 text-xs">Final Stop</Badge>
+                            )}
+                          </div>
+                          <div className="text-sm text-gray-600">
+                            {stop.distance} km • KSh {calculateFare(index)}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-sm font-medium text-gray-900">Stop {index + 1}</div>
+                          <div className="text-xs text-gray-500">
+                            {index === routeStops.length - 1 ? 'Completed' : 'Visited'}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Performance Metrics */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5 text-orange-600" />
+                    Performance Metrics
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="text-center p-3 bg-blue-50 rounded-lg">
+                      <div className="text-2xl font-bold text-blue-600">{Math.round((totalPassengersServed / vehicleCapacity) * 100)}%</div>
+                      <div className="text-sm text-gray-600">Capacity Used</div>
+                    </div>
+                    <div className="text-center p-3 bg-green-50 rounded-lg">
+                      <div className="text-2xl font-bold text-green-600">{routeStops.length}</div>
+                      <div className="text-sm text-gray-600">Stops Completed</div>
+                    </div>
+                    <div className="text-center p-3 bg-purple-50 rounded-lg">
+                      <div className="text-2xl font-bold text-purple-600">{Math.round(revenue / routeStops.length)}</div>
+                      <div className="text-sm text-gray-600">Avg/Stop (KSh)</div>
+                    </div>
+                    <div className="text-center p-3 bg-orange-50 rounded-lg">
+                      <div className="text-2xl font-bold text-orange-600">{totalPassengersServed > 0 ? Math.round(revenue / totalPassengersServed) : 0}</div>
+                      <div className="text-sm text-gray-600">Avg/Passenger (KSh)</div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Action Buttons */}
+              <div className="flex gap-3 pt-4 border-t">
+                <Button onClick={handleEndTrip} className="flex-1">
+                  End Trip & Return to Dashboard
+                </Button>
+                <Button 
+                  onClick={() => {
+                    setShowEndDialog(false);
+                    // Reset for new trip
+                    setTripStatus("idle");
+                    setCurrentStop(0);
+                    setPassengers(0);
+                    setRevenue(0);
+                    setPassengerAvatars([]);
+                    setTripProgress(0);
+                    setVehicleStatus("idle");
+                    setShiftStatus("on_duty");
+                  }} 
+                  variant="outline" 
+                  className="flex-1"
+                >
+                  Start New Trip
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Capacity Warning Dialog */}
+        <Dialog open={showCapacityWarning} onOpenChange={setShowCapacityWarning}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Capacity Warning</DialogTitle>
+              <DialogDescription>
+                The vehicle is full. No more passengers can be picked up.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="p-4 bg-yellow-50 rounded-lg text-center">
+                <AlertCircle className="h-12 w-12 text-yellow-500 mx-auto mb-2 animate-bounce" />
+                <p className="text-yellow-700 font-medium">The vehicle is full. No more passengers can be picked up.</p>
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={handleProceedWhenFull} className="flex-1">
+                  Proceed to Next Stop
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Drop-off Dialog */}
+        <Dialog open={showDropOffDialog} onOpenChange={setShowDropOffDialog}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Drop-off Confirmation</DialogTitle>
+              <DialogDescription>
+                Confirm the drop-off at the current stop
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="p-4 bg-blue-50 rounded-lg text-center">
+                <p className="text-blue-700">Are you sure you want to drop off passengers at this stop?</p>
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => setShowDropOffDialog(false)} className="flex-1">
+                  Cancel
+                </Button>
+                <Button onClick={handleConfirmDropOff} className="flex-1">
+                  Confirm Drop-off
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+        </div>
       </div>
+      
+      {/* Performance Sidebar */}
+      <DriverPerformanceSidebar 
+        data={mockPerformanceData}
+        isExpanded={showPerformanceSidebar}
+        onToggle={() => setShowPerformanceSidebar(!showPerformanceSidebar)}
+        currentView={performanceView}
+        onViewChange={setPerformanceView}
+      />
     </div>
-  )
-}
+  );
+} 

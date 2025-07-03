@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Header } from "@/components/header"
 import { SidebarWrapper } from "@/components/sidebar"
 import { Button } from "@/components/ui/button"
@@ -9,16 +9,89 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Printer, Search } from "lucide-react"
 
+interface Ticket {
+  id: string
+  passenger: string
+  seat: string
+  route: string
+}
+
 export default function PrintTickets() {
+  const [session, setSession] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+  const [driver, setDriver] = useState<any>(null)
+  const [vehicle, setVehicle] = useState<any>(null)
+  const [sacco, setSacco] = useState<any>(null)
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedTickets, setSelectedTickets] = useState<string[]>([])
+  const [tickets, setTickets] = useState<Ticket[]>([])
 
-  const tickets = [
-    { id: "TKT-001", passenger: "John Passenger", seat: "5", route: "Nairobi - Mombasa" },
-    { id: "TKT-002", passenger: "Jane Doe", seat: "12", route: "Nairobi - Mombasa" },
-    { id: "TKT-003", passenger: "Bob Smith", seat: "18", route: "Nairobi - Mombasa" },
-    { id: "TKT-004", passenger: "Alice Johnson", seat: "24", route: "Nairobi - Mombasa" },
-  ]
+  useEffect(() => {
+    const fetchSessionAndData = async () => {
+      try {
+        // Get current user session
+        const sessionResponse = await fetch('/api/auth/session')
+        if (!sessionResponse.ok) {
+          console.error('Not logged in')
+          return
+        }
+        const sessionData = await sessionResponse.json()
+        // Handle both old and new session formats
+        const user = sessionData.user || sessionData
+        setSession(user)
+
+        // Fetch driver data
+        const driversResponse = await fetch('/api/drivers')
+        const drivers = await driversResponse.json()
+        const currentDriver = drivers.find((d: any) => d.email === sessionData.email)
+        
+        if (currentDriver) {
+          setDriver(currentDriver)
+          
+          // Fetch companies data to get vehicle and sacco details
+          const companiesResponse = await fetch('/api/companies')
+          const companies = await companiesResponse.json()
+          
+          // Find the sacco and vehicle for this driver
+          for (const company of companies) {
+            for (const saccoData of company.saccos) {
+              if (saccoData.saccoName === currentDriver.sacco) {
+                setSacco(saccoData)
+                
+                // Find the specific vehicle
+                const vehicleData = saccoData.vehicles.find((v: any) => v.regNumber === currentDriver.vehicle)
+                if (vehicleData) {
+                  setVehicle(vehicleData)
+                  
+                  // Generate sample tickets based on the vehicle capacity and route
+                  const routeName = saccoData.route || `${saccoData.routeStart || ''} - ${saccoData.routeEnd || ''}`
+                  const sampleTickets: Ticket[] = []
+                  
+                  for (let i = 1; i <= vehicleData.capacity; i++) {
+                    sampleTickets.push({
+                      id: `TKT-${Date.now()}-${i.toString().padStart(3, '0')}`,
+                      passenger: `Passenger ${i}`,
+                      seat: i.toString(),
+                      route: routeName
+                    })
+                  }
+                  
+                  setTickets(sampleTickets)
+                }
+                break
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching data:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchSessionAndData()
+  }, [])
 
   const filteredTickets = tickets.filter(
     (ticket) =>
@@ -46,12 +119,34 @@ export default function PrintTickets() {
     alert(`Printing tickets: ${selectedTickets.join(", ")}`)
   }
 
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500 mx-auto"></div>
+          <p className="mt-2 text-muted-foreground">Loading ticket data...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!session) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold text-red-600 mb-2">Not Logged In</h2>
+          <p className="text-gray-600">Please log in to access ticket management.</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen flex">
-      <SidebarWrapper userType="driver" userName="David Driver" userEmail="driver@example.com" />
+      <SidebarWrapper userType="driver" userName={session.name} userEmail={session.email} />
 
       <div className="flex-1 flex flex-col">
-        <Header userName="David Driver" notificationCount={2} />
+        <Header userName={session.name} notificationCount={2} />
 
         <main className="flex-1 p-6">
           <div className="max-w-5xl mx-auto space-y-6">
@@ -63,7 +158,9 @@ export default function PrintTickets() {
             <Card>
               <CardHeader>
                 <CardTitle>Ticket Management</CardTitle>
-                <CardDescription>Select tickets to print for the current trip</CardDescription>
+                <CardDescription>
+                  Select tickets to print for the current trip - {vehicle?.regNumber || driver?.vehicle} • {sacco?.saccoName || driver?.sacco}
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-6">
@@ -190,11 +287,11 @@ export default function PrintTickets() {
                   <div className="grid gap-4 md:grid-cols-2">
                     <div className="space-y-2">
                       <Label htmlFor="trip-id">Trip ID</Label>
-                      <Input id="trip-id" defaultValue="KBZ-123-456" />
+                      <Input id="trip-id" defaultValue={`TRIP-${Date.now()}`} />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="bus-id">Bus ID</Label>
-                      <Input id="bus-id" defaultValue="KBZ 123C" />
+                      <Input id="bus-id" defaultValue={vehicle?.regNumber || driver?.vehicle || ''} />
                     </div>
                   </div>
 

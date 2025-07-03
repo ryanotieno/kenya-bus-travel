@@ -7,6 +7,32 @@ import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { Checkbox } from "@/components/ui/checkbox"
+import { 
+  Users, 
+  Car, 
+  Building2, 
+  ArrowLeft, 
+  MapPin, 
+  Bus, 
+  Shield, 
+  CheckCircle, 
+  AlertCircle, 
+  Sparkles, 
+  Zap, 
+  Eye, 
+  EyeOff,
+  UserPlus,
+  GraduationCap,
+  Briefcase,
+  Phone,
+  Mail,
+  Lock,
+  User,
+  Building
+} from "lucide-react"
+import Link from "next/link"
 
 interface Vehicle {
   id: number | string
@@ -23,38 +49,84 @@ interface Sacco {
   vehicles: Vehicle[]
 }
 
-export default function DriverRegister() {
+type UserRole = "user" | "driver" | "owner" | null
+
+export default function Register() {
+  const [selectedRole, setSelectedRole] = useState<UserRole>(null)
   const [saccos, setSaccos] = useState<Sacco[]>([])
   const [selectedSacco, setSelectedSacco] = useState<string>("")
   const [vehicles, setVehicles] = useState<Vehicle[]>([])
   const [selectedVehicle, setSelectedVehicle] = useState<string>("")
+  const [availableVehicles, setAvailableVehicles] = useState<Vehicle[]>([])
+  const [showPassword, setShowPassword] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+  const [animateIn, setAnimateIn] = useState(false)
   const [form, setForm] = useState({
     firstName: "",
     lastName: "",
     email: "",
     phone: "",
+    password: "",
+    // Driver specific fields
     license: "",
     experience: "",
-    password: ""
+    // Owner specific fields
+    companyName: "",
+    businessLicense: "",
+    address: ""
   })
   const [status, setStatus] = useState<string>("")
+  const [statusType, setStatusType] = useState<"success" | "error">("success")
   const router = useRouter()
 
   useEffect(() => {
+    // Trigger entrance animation
+    setTimeout(() => setAnimateIn(true), 100)
+    
     async function fetchSaccos() {
-      const res = await fetch("/api/companies")
-      const companies = await res.json()
-      // Flatten all saccos from all companies
-      const allSaccos = companies.flatMap((c: any) => c.saccos)
-      setSaccos(allSaccos)
+      try {
+        const res = await fetch("/api/saccos")
+        const saccos = await res.json()
+        setSaccos(saccos)
+      } catch (error) {
+        console.error('Error fetching saccos:', error)
+        // Fallback to companies API if saccos API fails
+        try {
+          const res = await fetch("/api/companies")
+          const companies = await res.json()
+          const allSaccos = companies.flatMap((c: any) => c.saccos)
+          setSaccos(allSaccos)
+        } catch (fallbackError) {
+          console.error('Fallback also failed:', fallbackError)
+        }
+      }
     }
     fetchSaccos()
   }, [])
 
   useEffect(() => {
     const sacco = saccos.find(s => s.saccoName === selectedSacco)
-    setVehicles(sacco ? sacco.vehicles : [])
+    setVehicles(sacco?.vehicles || [])
     setSelectedVehicle("")
+    
+    // Get available vehicles (not assigned to other drivers)
+    if (sacco && sacco.vehicles) {
+      async function fetchAvailableVehicles() {
+        try {
+          const driversRes = await fetch("/api/drivers")
+          const drivers = await driversRes.json()
+          const assignedVehicles = drivers.map((d: any) => d.vehicle)
+          const available = (sacco as any).vehicles.filter((v: Vehicle) => !assignedVehicles.includes(v.regNumber))
+          setAvailableVehicles(available)
+        } catch (error) {
+          console.error('Error fetching available vehicles:', error)
+          setAvailableVehicles((sacco as any).vehicles)
+        }
+      }
+      fetchAvailableVehicles()
+    } else {
+      setAvailableVehicles([])
+    }
   }, [selectedSacco, saccos])
 
   const handleFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -64,118 +136,634 @@ export default function DriverRegister() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setStatus("")
+    setIsLoading(true)
+    
     try {
-      const res = await fetch("/api/drivers", {
+      let payload: any = {
+        firstName: form.firstName,
+        lastName: form.lastName,
+        email: form.email,
+        phone: form.phone,
+        password: form.password,
+        role: selectedRole
+      }
+
+      // Add role-specific data
+      switch (selectedRole) {
+        case "driver":
+          payload = {
+            ...payload,
+            license: form.license,
+            experience: form.experience,
+            sacco: selectedSacco,
+            vehicle: selectedVehicle,
+          }
+          break
+        case "owner":
+          payload = {
+            ...payload,
+            companyName: form.companyName,
+            businessLicense: form.businessLicense,
+            address: form.address,
+          }
+          break
+      }
+
+      const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...form,
-          sacco: selectedSacco,
-          vehicle: selectedVehicle,
-        }),
+        body: JSON.stringify(payload),
       })
+      
       const data = await res.json()
       if (res.ok) {
+        setStatusType("success")
         setStatus("Registration successful! Redirecting to login...")
-        setForm({
-          firstName: "",
-          lastName: "",
-          email: "",
-          phone: "",
-          license: "",
-          experience: "",
-          password: ""
-        })
-        setSelectedSacco("")
-        setSelectedVehicle("")
+        resetForm()
         setTimeout(() => {
-          router.push("/login?type=driver")
-        }, 1500)
+          router.push(`/login?type=${selectedRole}`)
+        }, 2000)
       } else {
+        setStatusType("error")
         setStatus(data.error || "Registration failed.")
+        setIsLoading(false)
       }
     } catch (err) {
+      setStatusType("error")
       setStatus("Registration failed. Please try again.")
+      setIsLoading(false)
     }
   }
 
+  const resetForm = () => {
+    setForm({
+      firstName: "",
+      lastName: "",
+      email: "",
+      phone: "",
+      password: "",
+      license: "",
+      experience: "",
+      companyName: "",
+      businessLicense: "",
+      address: ""
+    })
+    setSelectedSacco("")
+    setSelectedVehicle("")
+  }
+
+  const handleBackToRoleSelection = () => {
+    setSelectedRole(null)
+    resetForm()
+    setStatus("")
+  }
+
+  const getIconForRole = (role: string) => {
+    switch (role) {
+      case "driver":
+        return <Bus className="h-6 w-6" />
+      case "owner":
+        return <Shield className="h-6 w-6" />
+      default:
+        return <MapPin className="h-6 w-6" />
+    }
+  }
+
+  const getColorForRole = (role: string) => {
+    switch (role) {
+      case "driver":
+        return "from-orange-500 to-orange-600"
+      case "owner":
+        return "from-green-500 to-green-600"
+      default:
+        return "from-blue-500 to-blue-600"
+    }
+  }
+
+  // Role Selection Screen
+  if (!selectedRole) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex flex-col">
+        {/* Animated Background Elements */}
+        <div className="fixed inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute -top-40 -right-40 w-80 h-80 bg-blue-200 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob"></div>
+          <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-purple-200 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-2000"></div>
+          <div className="absolute top-40 left-40 w-80 h-80 bg-pink-200 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-4000"></div>
+        </div>
+
+        <header className="relative border-b border-white/20 backdrop-blur-sm bg-white/10">
+          <div className="container mx-auto px-4 py-4">
+            <Link href="/" className="flex items-center gap-3 group">
+              <div className="bg-gradient-to-r from-orange-500 to-orange-600 text-white p-3 rounded-xl shadow-lg group-hover:scale-110 transition-transform duration-300">
+                <MapPin className="h-6 w-6" />
+              </div>
+              <div>
+                <span className="text-2xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
+                  Kenya Bus Tracker
+                </span>
+                <div className="text-xs text-gray-500">Real-time bus tracking</div>
+              </div>
+            </Link>
+          </div>
+        </header>
+
+        <main className="flex-1 flex items-center justify-center p-6 md:p-10 relative z-10">
+          <Card className={`w-full max-w-4xl backdrop-blur-sm bg-white/80 border-white/20 shadow-2xl transition-all duration-1000 ${
+            animateIn ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
+          }`}>
+            <CardHeader className="text-center pb-8">
+              <div className="flex justify-center mb-4">
+                <div className="bg-gradient-to-r from-blue-500 to-purple-600 text-white p-4 rounded-2xl shadow-lg">
+                  <UserPlus className="h-8 w-8" />
+                </div>
+              </div>
+              <CardTitle className="text-3xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
+                Join Kenya Bus Tracker
+              </CardTitle>
+              <p className="text-gray-600 mt-2">Choose how you want to use our platform</p>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid gap-6 md:grid-cols-3">
+                {/* User Registration */}
+                <Card 
+                  className="cursor-pointer hover:shadow-xl transition-all duration-300 border-2 hover:border-blue-500 transform hover:scale-105 bg-white/50 backdrop-blur-sm"
+                  onClick={() => setSelectedRole("user")}
+                >
+                  <CardContent className="p-8 text-center">
+                    <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white p-4 rounded-2xl shadow-lg mx-auto mb-6 w-16 h-16 flex items-center justify-center">
+                      <Users className="h-8 w-8" />
+                    </div>
+                    <h3 className="font-bold text-xl mb-3 text-gray-800">Passenger</h3>
+                    <p className="text-gray-600 mb-6 leading-relaxed">
+                      Book tickets, track buses in real-time, and manage your travel experience
+                    </p>
+                    <div className="space-y-2 text-sm text-gray-500">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="w-4 h-4 text-green-500" />
+                        <span>Real-time bus tracking</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="w-4 h-4 text-green-500" />
+                        <span>Easy ticket booking</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="w-4 h-4 text-green-500" />
+                        <span>Route planning</span>
+                      </div>
+                    </div>
+                    <Badge className="bg-blue-100 text-blue-800 mt-4">
+                      Most Popular
+                    </Badge>
+                  </CardContent>
+                </Card>
+
+                {/* Driver Registration */}
+                <Card 
+                  className="cursor-pointer hover:shadow-xl transition-all duration-300 border-2 hover:border-orange-500 transform hover:scale-105 bg-white/50 backdrop-blur-sm"
+                  onClick={() => setSelectedRole("driver")}
+                >
+                  <CardContent className="p-8 text-center">
+                    <div className="bg-gradient-to-r from-orange-500 to-orange-600 text-white p-4 rounded-2xl shadow-lg mx-auto mb-6 w-16 h-16 flex items-center justify-center">
+                      <Car className="h-8 w-8" />
+                    </div>
+                    <h3 className="font-bold text-xl mb-3 text-gray-800">Driver</h3>
+                    <p className="text-gray-600 mb-6 leading-relaxed">
+                      Manage your routes, track passengers, and optimize your driving performance
+                    </p>
+                    <div className="space-y-2 text-sm text-gray-500">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="w-4 h-4 text-green-500" />
+                        <span>Route management</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="w-4 h-4 text-green-500" />
+                        <span>Performance tracking</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="w-4 h-4 text-green-500" />
+                        <span>Passenger management</span>
+                      </div>
+                    </div>
+                    <Badge className="bg-orange-100 text-orange-800 mt-4">
+                      Professional
+                    </Badge>
+                  </CardContent>
+                </Card>
+
+                {/* Owner Registration */}
+                <Card 
+                  className="cursor-pointer hover:shadow-xl transition-all duration-300 border-2 hover:border-green-500 transform hover:scale-105 bg-white/50 backdrop-blur-sm"
+                  onClick={() => setSelectedRole("owner")}
+                >
+                  <CardContent className="p-8 text-center">
+                    <div className="bg-gradient-to-r from-green-500 to-green-600 text-white p-4 rounded-2xl shadow-lg mx-auto mb-6 w-16 h-16 flex items-center justify-center">
+                      <Building2 className="h-8 w-8" />
+                    </div>
+                    <h3 className="font-bold text-xl mb-3 text-gray-800">Bus Owner</h3>
+                    <p className="text-gray-600 mb-6 leading-relaxed">
+                      Manage your fleet, monitor operations, and grow your transportation business
+                    </p>
+                    <div className="space-y-2 text-sm text-gray-500">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="w-4 h-4 text-green-500" />
+                        <span>Fleet management</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="w-4 h-4 text-green-500" />
+                        <span>Business analytics</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="w-4 h-4 text-green-500" />
+                        <span>Revenue tracking</span>
+                      </div>
+                    </div>
+                    <Badge className="bg-green-100 text-green-800 mt-4">
+                      Business
+                    </Badge>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <div className="text-center pt-6 border-t border-gray-200">
+                <p className="text-gray-600">
+                  Already have an account?{" "}
+                  <Link href="/login" className="text-blue-600 hover:text-blue-800 hover:underline font-medium transition-colors">
+                    Sign in here
+                  </Link>
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </main>
+
+        <footer className="relative border-t border-white/20 backdrop-blur-sm bg-white/10 py-6">
+          <div className="container mx-auto px-4 text-center">
+            <p className="text-gray-600">
+              © {new Date().getFullYear()} Kenya Bus Tracker. All rights reserved.
+            </p>
+          </div>
+        </footer>
+      </div>
+    )
+  }
+
+  // Registration Form Screen
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-8">
-      <Card className="w-full max-w-lg">
-        <CardHeader>
-          <CardTitle>Driver Registration</CardTitle>
-        </CardHeader>
-        <form onSubmit={handleSubmit}>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="firstName">First Name</Label>
-                <Input id="firstName" name="firstName" value={form.firstName} onChange={handleFormChange} required />
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex flex-col">
+      {/* Animated Background Elements */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-blue-200 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob"></div>
+        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-purple-200 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-2000"></div>
+        <div className="absolute top-40 left-40 w-80 h-80 bg-pink-200 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-4000"></div>
+      </div>
+
+      <header className="relative border-b border-white/20 backdrop-blur-sm bg-white/10">
+        <div className="container mx-auto px-4 py-4">
+          <Link href="/" className="flex items-center gap-3 group">
+            <div className="bg-gradient-to-r from-orange-500 to-orange-600 text-white p-3 rounded-xl shadow-lg group-hover:scale-110 transition-transform duration-300">
+              <MapPin className="h-6 w-6" />
+            </div>
+            <div>
+              <span className="text-2xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
+                Kenya Bus Tracker
+              </span>
+              <div className="text-xs text-gray-500">Real-time bus tracking</div>
+            </div>
+          </Link>
+        </div>
+      </header>
+
+      <main className="flex-1 flex items-center justify-center p-6 md:p-10 relative z-10">
+        <Card className={`w-full max-w-2xl backdrop-blur-sm bg-white/80 border-white/20 shadow-2xl transition-all duration-1000 ${
+          animateIn ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
+        }`}>
+          <CardHeader className="text-center pb-6">
+            <div className="flex justify-center mb-4">
+              <div className={`bg-gradient-to-r ${getColorForRole(selectedRole)} text-white p-4 rounded-2xl shadow-lg`}>
+                {getIconForRole(selectedRole)}
               </div>
-              <div>
-                <Label htmlFor="lastName">Last Name</Label>
-                <Input id="lastName" name="lastName" value={form.lastName} onChange={handleFormChange} required />
-              </div>
             </div>
-            <div>
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" name="email" type="email" value={form.email} onChange={handleFormChange} required />
-            </div>
-            <div>
-              <Label htmlFor="phone">Phone Number</Label>
-              <Input id="phone" name="phone" type="tel" value={form.phone} onChange={handleFormChange} required />
-            </div>
-            <div>
-              <Label htmlFor="license">Driver's License Number</Label>
-              <Input id="license" name="license" value={form.license} onChange={handleFormChange} required />
-            </div>
-            <div>
-              <Label htmlFor="experience">Years of Experience</Label>
-              <Input id="experience" name="experience" type="number" min="0" value={form.experience} onChange={handleFormChange} required />
-            </div>
-            <div>
-              <Label htmlFor="password">Password</Label>
-              <Input id="password" name="password" type="password" value={form.password} onChange={handleFormChange} required />
-            </div>
-            <div>
-              <Label htmlFor="sacco">Sacco</Label>
-              <Select value={selectedSacco} onValueChange={setSelectedSacco} required>
-                <SelectTrigger id="sacco">
-                  <SelectValue placeholder="Select Sacco" />
-                </SelectTrigger>
-                <SelectContent>
-                  {saccos.map(sacco => (
-                    <SelectItem key={sacco.saccoName} value={sacco.saccoName}>
-                      {sacco.saccoName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label htmlFor="vehicle">Vehicle</Label>
-              <Select value={selectedVehicle} onValueChange={setSelectedVehicle} disabled={!selectedSacco || vehicles.length === 0} required>
-                <SelectTrigger id="vehicle">
-                  <SelectValue placeholder={selectedSacco ? (vehicles.length ? "Select Vehicle" : "No vehicles available") : "Select Sacco first"} />
-                </SelectTrigger>
-                <SelectContent>
-                  {vehicles.map(vehicle => (
-                    <SelectItem key={vehicle.id} value={vehicle.regNumber}>
-                      {vehicle.name} ({vehicle.regNumber})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <CardTitle className="text-2xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
+              Register as {selectedRole === "user" ? "Passenger" : selectedRole === "driver" ? "Driver" : "Bus Owner"}
+            </CardTitle>
+            <p className="text-gray-600">Create your account to get started</p>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* Status Message */}
             {status && (
-              <div className={status.includes("success") ? "text-green-600" : "text-red-600"}>{status}</div>
+              <div className={`p-4 rounded-xl border ${
+                statusType === "success" 
+                  ? "bg-green-50 border-green-200 text-green-700" 
+                  : "bg-red-50 border-red-200 text-red-700"
+              }`}>
+                <div className="flex items-center gap-2">
+                  {statusType === "success" ? (
+                    <CheckCircle className="w-4 h-4" />
+                  ) : (
+                    <AlertCircle className="w-4 h-4" />
+                  )}
+                  <span className="text-sm">{status}</span>
+                </div>
+              </div>
             )}
+
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Basic Information */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                  <User className="w-5 h-5 text-blue-600" />
+                  Basic Information
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="firstName" className="text-sm font-medium text-gray-700">
+                      First Name
+                    </Label>
+                    <Input
+                      id="firstName"
+                      name="firstName"
+                      type="text"
+                      placeholder="Enter your first name"
+                      value={form.firstName}
+                      onChange={handleFormChange}
+                      className="h-12 px-4 border-gray-200 focus:border-blue-500 focus:ring-blue-500 transition-all duration-300"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="lastName" className="text-sm font-medium text-gray-700">
+                      Last Name
+                    </Label>
+                    <Input
+                      id="lastName"
+                      name="lastName"
+                      type="text"
+                      placeholder="Enter your last name"
+                      value={form.lastName}
+                      onChange={handleFormChange}
+                      className="h-12 px-4 border-gray-200 focus:border-blue-500 focus:ring-blue-500 transition-all duration-300"
+                      required
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="email" className="text-sm font-medium text-gray-700">
+                      Email Address
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        id="email"
+                        name="email"
+                        type="email"
+                        placeholder="Enter your email"
+                        value={form.email}
+                        onChange={handleFormChange}
+                        className="h-12 px-4 pl-12 border-gray-200 focus:border-blue-500 focus:ring-blue-500 transition-all duration-300"
+                        required
+                      />
+                      <Mail className="absolute left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="phone" className="text-sm font-medium text-gray-700">
+                      Phone Number
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        id="phone"
+                        name="phone"
+                        type="tel"
+                        placeholder="Enter your phone number"
+                        value={form.phone}
+                        onChange={handleFormChange}
+                        className="h-12 px-4 pl-12 border-gray-200 focus:border-blue-500 focus:ring-blue-500 transition-all duration-300"
+                        required
+                      />
+                      <Phone className="absolute left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    </div>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="password" className="text-sm font-medium text-gray-700">
+                    Password
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      name="password"
+                      type={showPassword ? "text" : "password"}
+                      placeholder="Create a strong password"
+                      value={form.password}
+                      onChange={handleFormChange}
+                      className="h-12 px-4 pl-12 pr-12 border-gray-200 focus:border-blue-500 focus:ring-blue-500 transition-all duration-300"
+                      required
+                    />
+                    <Lock className="absolute left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <button
+                      type="button"
+                      className="absolute right-4 top-1/2 transform -translate-y-1/2"
+                      onClick={() => setShowPassword(!showPassword)}
+                    >
+                      {showPassword ? (
+                        <EyeOff className="h-5 w-5 text-gray-400 hover:text-gray-600 transition-colors" />
+                      ) : (
+                        <Eye className="h-5 w-5 text-gray-400 hover:text-gray-600 transition-colors" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Role-specific Information */}
+              {selectedRole === "driver" && (
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                    <GraduationCap className="w-5 h-5 text-orange-600" />
+                    Driver Information
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="license" className="text-sm font-medium text-gray-700">
+                        License Number
+                      </Label>
+                      <Input
+                        id="license"
+                        name="license"
+                        type="text"
+                        placeholder="Enter your license number"
+                        value={form.license}
+                        onChange={handleFormChange}
+                        className="h-12 px-4 border-gray-200 focus:border-orange-500 focus:ring-orange-500 transition-all duration-300"
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="experience" className="text-sm font-medium text-gray-700">
+                        Years of Experience
+                      </Label>
+                      <Input
+                        id="experience"
+                        name="experience"
+                        type="number"
+                        placeholder="Years of experience"
+                        value={form.experience}
+                        onChange={handleFormChange}
+                        className="h-12 px-4 border-gray-200 focus:border-orange-500 focus:ring-orange-500 transition-all duration-300"
+                        required
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="sacco" className="text-sm font-medium text-gray-700">
+                        Sacco
+                      </Label>
+                      <Select value={selectedSacco} onValueChange={setSelectedSacco}>
+                        <SelectTrigger className="h-12 border-gray-200 focus:border-orange-500 focus:ring-orange-500 transition-all duration-300">
+                          <SelectValue placeholder="Select your sacco" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {saccos.map((sacco) => (
+                            <SelectItem key={sacco.saccoName} value={sacco.saccoName}>
+                              {sacco.saccoName}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="vehicle" className="text-sm font-medium text-gray-700">
+                        Vehicle
+                      </Label>
+                      <Select value={selectedVehicle} onValueChange={setSelectedVehicle}>
+                        <SelectTrigger className="h-12 border-gray-200 focus:border-orange-500 focus:ring-orange-500 transition-all duration-300">
+                          <SelectValue placeholder="Select your vehicle" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableVehicles.map((vehicle) => (
+                            <SelectItem key={vehicle.regNumber} value={vehicle.regNumber}>
+                              {vehicle.name} ({vehicle.regNumber})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {selectedRole === "owner" && (
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                    <Briefcase className="w-5 h-5 text-green-600" />
+                    Business Information
+                  </h3>
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="companyName" className="text-sm font-medium text-gray-700">
+                        Company Name
+                      </Label>
+                      <div className="relative">
+                        <Input
+                          id="companyName"
+                          name="companyName"
+                          type="text"
+                          placeholder="Enter your company name"
+                          value={form.companyName}
+                          onChange={handleFormChange}
+                          className="h-12 px-4 pl-12 border-gray-200 focus:border-green-500 focus:ring-green-500 transition-all duration-300"
+                          required
+                        />
+                        <Building className="absolute left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="businessLicense" className="text-sm font-medium text-gray-700">
+                          Business License
+                        </Label>
+                        <Input
+                          id="businessLicense"
+                          name="businessLicense"
+                          type="text"
+                          placeholder="Enter business license number"
+                          value={form.businessLicense}
+                          onChange={handleFormChange}
+                          className="h-12 px-4 border-gray-200 focus:border-green-500 focus:ring-green-500 transition-all duration-300"
+                          required
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="address" className="text-sm font-medium text-gray-700">
+                          Business Address
+                        </Label>
+                        <Input
+                          id="address"
+                          name="address"
+                          type="text"
+                          placeholder="Enter business address"
+                          value={form.address}
+                          onChange={handleFormChange}
+                          className="h-12 px-4 border-gray-200 focus:border-green-500 focus:ring-green-500 transition-all duration-300"
+                          required
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex gap-4 pt-6">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleBackToRoleSelection}
+                  className="flex-1 h-12 border-gray-300 hover:bg-gray-50 transition-colors"
+                >
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Back
+                </Button>
+                <Button 
+                  type="submit" 
+                  disabled={isLoading}
+                  className="flex-1 h-12 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-medium rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isLoading ? (
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      Creating account...
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <Zap className="w-4 h-4" />
+                      Create Account
+                    </div>
+                  )}
+                </Button>
+              </div>
+            </form>
+
+            <div className="text-center pt-6 border-t border-gray-200">
+              <p className="text-gray-600">
+                Already have an account?{" "}
+                <Link href="/login" className="text-blue-600 hover:text-blue-800 hover:underline font-medium transition-colors">
+                  Sign in here
+                </Link>
+              </p>
+            </div>
           </CardContent>
-          <CardFooter className="flex justify-end gap-2">
-            <Button type="submit">Register</Button>
-          </CardFooter>
-        </form>
-      </Card>
+        </Card>
+      </main>
+
+      <footer className="relative border-t border-white/20 backdrop-blur-sm bg-white/10 py-6">
+        <div className="container mx-auto px-4 text-center">
+          <p className="text-gray-600">
+            © {new Date().getFullYear()} Kenya Bus Tracker. All rights reserved.
+          </p>
+        </div>
+      </footer>
     </div>
   )
 } 

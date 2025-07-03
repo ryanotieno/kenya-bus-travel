@@ -1,0 +1,32 @@
+[
+  {
+    "id": "1751309221238",
+    "firstName": "Charles",
+    "lastName": "Otieno",
+    "email": "otieno.charles@gmail.com",
+    "phone": "0722618470",
+    "password": "owner123",
+    "role": "owner",
+    "createdAt": "2025-06-30T18:47:01.238Z",
+    "ownerData": {
+      "companyName": "Latema Sacco",
+      "businessLicense": "123456",
+      "address": "The Alma By Cytonn"
+    }
+  },
+  {
+    "id": "1751481129849",
+    "firstName": "Eugene",
+    "lastName": "Oyier",
+    "email": "oyier@gmail.com",
+    "phone": "0723859370",
+    "password": "owner123",
+    "role": "owner",
+    "createdAt": "2025-07-02T18:32:09.849Z",
+    "ownerData": {
+      "companyName": "Kiragi Sacco",
+      "businessLicense": "123456",
+      "address": "1160 Camino De Cruz Blanca"
+    }
+  }
+]

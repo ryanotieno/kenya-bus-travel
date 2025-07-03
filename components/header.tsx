@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { Bell, MapPin } from "lucide-react"
+import { Bell, MapPin, LogOut } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -49,6 +49,12 @@ export function Header({ userName, notificationCount = 0 }: HeaderProps) {
             </Avatar>
             <span className="font-medium hidden md:inline-block">{userName}</span>
           </div>
+
+          <Link href="/logout">
+            <Button variant="ghost" size="icon" className="text-gray-600 hover:text-red-600 hover:bg-red-50">
+              <LogOut className="h-5 w-5" />
+            </Button>
+          </Link>
         </div>
       </div>
     </header>

@@ -1,100 +1,90 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { jwtVerify, SignJWT } from "jose"
+import { jwtVerify } from "jose"
 
-// This would be an environment variable in a real app
-const JWT_SECRET = new TextEncoder().encode("your-secret-key")
+// Use environment variable for JWT secret, fallback to a default for development
+const JWT_SECRET = new TextEncoder().encode(
+  process.env.JWT_SECRET || "your-secret-key-for-development-only"
+)
 
 export async function middleware(request: NextRequest) {
   const session = request.cookies.get("session")?.value
   const url = request.nextUrl.pathname
 
-  // BYPASS: Always create a valid session if there's no session
+  console.log(`🔍 Middleware called for: ${url}`)
+  console.log(`🍪 Session cookie: ${session ? 'Present' : 'Missing'}`)
+
+  // Public routes that don't require authentication
+  const publicRoutes = ["/", "/login", "/register", "/api/auth/login", "/api/auth/register", "/api/auth/session"]
+  const isPublicRoute = publicRoutes.some(route => url === route || url.startsWith(route + "/"))
+
+  // If it's a public route, allow access
+  if (isPublicRoute) {
+    console.log(`✅ Public route accessed: ${url}`)
+    return NextResponse.next()
+  }
+
+  // If no session, redirect to login
   if (!session) {
-    // Determine which role to use based on the URL
-    const role = url.startsWith("/driver") ? "driver" : "user"
-    
-    // Create a new session with demo user
-    const user = {
-      id: role === "driver" ? "driver-123" : "user-456",
-      name: role === "driver" ? "David Driver" : "John Passenger",
-      email: role === "driver" ? "driver@demo.com" : "user@demo.com",
-      role: role
-    }
-    
-    // Create the JWT token
-    const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-    const newSession = await new SignJWT({ ...user })
-      .setProtectedHeader({ alg: "HS256" })
-      .setIssuedAt()
-      .setExpirationTime(expires.getTime() / 1000)
-      .sign(JWT_SECRET)
-    
-    // Create a response that allows the user to proceed
-    const response = NextResponse.next()
-    
-    // Set the session cookie
-    response.cookies.set("session", newSession, {
-      expires,
-      httpOnly: true,
-      path: "/",
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-    })
-    
-    return response
+    console.log(`🔒 No session found, redirecting to login from: ${url}`)
+    const loginUrl = new URL("/login", request.url)
+    // Preserve the intended destination
+    loginUrl.searchParams.set("redirect", url)
+    return NextResponse.redirect(loginUrl)
   }
 
   try {
     // Verify the session
     const { payload } = await jwtVerify(session, JWT_SECRET)
-    const role = payload.role as string
+    const userRole = payload.role as string
+    const userEmail = payload.email as string
+
+    console.log(`🔐 Session verified for ${userEmail} (${userRole}) accessing ${url}`)
 
     // Check if the user is accessing the correct role-based routes
-    if (role === "user" && url.startsWith("/driver")) {
-      return NextResponse.redirect(new URL("/user/dashboard", request.url))
+    if (userRole === "driver") {
+      // Drivers can only access driver routes
+      if (!url.startsWith("/driver") && !url.startsWith("/api/drivers")) {
+        console.log(`🚫 Driver ${userEmail} trying to access non-driver route: ${url}`)
+        return NextResponse.redirect(new URL("/driver/dashboard", request.url))
+      }
+    } else if (userRole === "user") {
+      // Regular users can only access user routes
+      if (!url.startsWith("/user") && !url.startsWith("/api/")) {
+        console.log(`🚫 User ${userEmail} trying to access non-user route: ${url}`)
+        return NextResponse.redirect(new URL("/user/dashboard", request.url))
+      }
+    } else if (userRole === "owner") {
+      // Owners can only access owner routes
+      if (!url.startsWith("/owner") && !url.startsWith("/api/")) {
+        console.log(`🚫 Owner ${userEmail} trying to access non-owner route: ${url}`)
+        return NextResponse.redirect(new URL("/owner/dashboard", request.url))
+      }
     }
 
-    if (role === "driver" && url.startsWith("/user")) {
-      return NextResponse.redirect(new URL("/driver/dashboard", request.url))
-    }
-
+    console.log(`✅ Access granted to ${userEmail} for ${url}`)
     return NextResponse.next()
   } catch (error) {
-    // BYPASS: If the session is invalid, create a new one instead of redirecting
-    const role = url.startsWith("/driver") ? "driver" : "user"
-    
-    // Create a new session with demo user
-    const user = {
-      id: role === "driver" ? "driver-123" : "user-456",
-      name: role === "driver" ? "David Driver" : "John Passenger",
-      email: role === "driver" ? "driver@demo.com" : "user@demo.com",
-      role: role
-    }
-    
-    // Create the JWT token
-    const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-    const newSession = await new SignJWT({ ...user })
-      .setProtectedHeader({ alg: "HS256" })
-      .setIssuedAt()
-      .setExpirationTime(expires.getTime() / 1000)
-      .sign(JWT_SECRET)
-    
-    // Create a response that allows the user to proceed
-    const response = NextResponse.next()
-    
-    // Set the session cookie
-    response.cookies.set("session", newSession, {
-      expires,
-      httpOnly: true,
-      path: "/",
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-    })
-    
-    return response
+    // Invalid session, redirect to login
+    console.log(`❌ Invalid session, redirecting to login from: ${url}`)
+    console.log(`❌ Error:`, error)
+    const loginUrl = new URL("/login", request.url)
+    loginUrl.searchParams.set("redirect", url)
+    return NextResponse.redirect(loginUrl)
   }
 }
 
 export const config = {
-  matcher: ["/user/:path*", "/driver/:path*"],
+  matcher: [
+    // Protect all dashboard routes
+    "/user/:path*",
+    "/driver/:path*", 
+    "/owner/:path*",
+    // Protect specific API routes that need authentication
+    "/api/drivers/:path*",
+    "/api/companies/:path*",
+    "/api/vehicles/:path*",
+    "/api/routes/:path*",
+    "/api/trips/:path*",
+    "/api/tickets/:path*",
+  ],
 }

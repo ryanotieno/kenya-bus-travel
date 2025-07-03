@@ -62,5 +62,49 @@
         ]
       }
     ]
+  },
+  {
+    "ownerEmail": "otieno.charles@gmail.com",
+    "ownerName": "Charles Otieno",
+    "companyName": "Latema Sacco",
+    "saccos": [
+      {
+        "saccoName": "Latema Sacco",
+        "route": "CBD terminal - Lavington",
+        "routeStart": "CBD terminal",
+        "routeEnd": "Lavington",
+        "busStops": [
+          "CBD",
+          "Museum Hill",
+          "City Mortuary",
+          "Office Park",
+          "Kasuku",
+          "Kwa Kidero",
+          "Kileleshwa Academy",
+          "Methodist",
+          "Quickmart Lavington"
+        ],
+        "vehicles": [
+          {
+            "name": "Toyota Quantum",
+            "regNumber": "KBW 138P",
+            "capacity": 14,
+            "id": 1751309984717
+          },
+          {
+            "name": "Toyota Quantum",
+            "regNumber": "KDA 882P",
+            "capacity": 14,
+            "id": 1751309984718
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "ownerEmail": "oyier@gmail.com",
+    "ownerName": "Eugene Oyier",
+    "companyName": "Kiragi Sacco",
+    "saccos": []
   }
 ]
