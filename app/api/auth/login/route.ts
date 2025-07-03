@@ -5,15 +5,21 @@ import { userService } from "@/lib/db-service"
 export async function POST(request: NextRequest) {
   try {
     const { email, password } = await request.json()
+    
+    console.log(`🔐 Login attempt for email: ${email}`)
 
     if (!email || !password) {
+      console.log("❌ Missing email or password")
       return NextResponse.json({ error: "Email and password are required" }, { status: 400 })
     }
 
     // Check credentials against the database
     const user = await userService.getByEmail(email)
+    
+    console.log(`👤 User lookup result:`, user ? `Found user ${user.email} (${user.role})` : "User not found")
 
     if (!user) {
+      console.log("❌ User not found in database")
       return NextResponse.json({ error: "Invalid credentials" }, { status: 401 })
     }
 
@@ -24,10 +30,15 @@ export async function POST(request: NextRequest) {
     //   return NextResponse.json({ error: "Invalid credentials" }, { status: 401 })
     // }
 
+    console.log(`🔑 Password check: provided="${password}", stored="${user.password}"`)
+    
     if (user.password !== password) {
+      console.log("❌ Password mismatch")
       return NextResponse.json({ error: "Invalid credentials" }, { status: 401 })
     }
 
+    console.log(`✅ Creating session for user ${user.email} (${user.role})`)
+    
     await createSession({
       id: user.id.toString(),
       name: `${user.firstName} ${user.lastName}`,
@@ -35,9 +46,13 @@ export async function POST(request: NextRequest) {
       role: user.role,
     })
 
+    console.log(`✅ Session created successfully`)
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error("Authentication error:", error)
-    return NextResponse.json({ error: "Authentication failed" }, { status: 401 })
+    console.error("❌ Authentication error:", error)
+    return NextResponse.json({ 
+      error: "Authentication failed", 
+      details: error instanceof Error ? error.message : "Unknown error"
+    }, { status: 401 })
   }
 }
