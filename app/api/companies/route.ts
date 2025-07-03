@@ -6,7 +6,15 @@ export async function GET() {
     const companies = await companyService.getAll()
     const saccos = await saccoService.getAll()
     const vehicles = await vehicleService.getAll()
-    const routes = await routeService.getAll()
+    
+    // Try to get routes, but handle the case where the table doesn't exist yet
+    let routes: any[] = []
+    try {
+      routes = await routeService.getAll()
+    } catch (routeError) {
+      console.log("Routes table doesn't exist yet, continuing without routes:", routeError)
+      routes = []
+    }
     
     // Transform database data to match dashboard format
     const transformedCompanies = companies.map((company: any) => {
@@ -88,16 +96,21 @@ export async function POST(request: NextRequest) {
 
       // Create route for this sacco if routeStart and routeEnd are provided
       if (routeStart && routeEnd) {
-        await routeService.create({
-          name: `${routeStart} - ${routeEnd}`,
-          startLocation: routeStart,
-          endLocation: routeEnd,
-          distance: 0, // Would need to calculate
-          estimatedTime: 0, // Would need to estimate
-          fare: 0, // Would need to set
-          saccoId: sacco.id,
-          status: 'active'
-        })
+        try {
+          await routeService.create({
+            name: `${routeStart} - ${routeEnd}`,
+            startLocation: routeStart,
+            endLocation: routeEnd,
+            distance: 0, // Would need to calculate
+            estimatedTime: 0, // Would need to estimate
+            fare: 0, // Would need to set
+            saccoId: sacco.id,
+            status: 'active'
+          })
+        } catch (routeError) {
+          console.log("Routes table doesn't exist yet, skipping route creation:", routeError)
+          // Continue without creating the route - the sacco will still be created
+        }
       }
 
       // Create vehicles for this sacco

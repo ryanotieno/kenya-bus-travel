@@ -106,17 +106,22 @@ export async function POST(request: NextRequest) {
 
     // Create route for this sacco if routeStart and routeEnd are provided
     if (routeStart && routeEnd) {
-      const newRoute = await routeService.create({
-        name: route,
-        startLocation: routeStart,
-        endLocation: routeEnd,
-        distance: 0, // Would need to calculate
-        estimatedTime: 0, // Would need to estimate
-        fare: 0, // Would need to set
-        saccoId: newSacco.id,
-        status: 'active'
-      })
-      console.log("✅ Created route:", newRoute)
+      try {
+        const newRoute = await routeService.create({
+          name: route,
+          startLocation: routeStart,
+          endLocation: routeEnd,
+          distance: 0, // Would need to calculate
+          estimatedTime: 0, // Would need to estimate
+          fare: 0, // Would need to set
+          saccoId: newSacco.id,
+          status: 'active'
+        })
+        console.log("✅ Created route:", newRoute)
+      } catch (routeError) {
+        console.log("Routes table doesn't exist yet, skipping route creation:", routeError)
+        // Continue without creating the route - the sacco will still be created
+      }
     }
 
     // TODO: Handle bus stops if we have a busStops table
