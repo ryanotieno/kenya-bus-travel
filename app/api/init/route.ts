@@ -15,68 +15,68 @@ export async function GET() {
     // Create users table
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        first_name TEXT NOT NULL,
-        last_name TEXT NOT NULL,
-        email TEXT NOT NULL UNIQUE,
-        phone TEXT,
-        password TEXT NOT NULL,
-        role TEXT NOT NULL DEFAULT 'user',
-        created_at INTEGER DEFAULT (unixepoch()),
-        updated_at INTEGER DEFAULT (unixepoch())
+        id SERIAL PRIMARY KEY,
+        first_name VARCHAR(255) NOT NULL,
+        last_name VARCHAR(255) NOT NULL,
+        email VARCHAR(255) NOT NULL UNIQUE,
+        phone VARCHAR(20),
+        password VARCHAR(255) NOT NULL,
+        role VARCHAR(50) NOT NULL DEFAULT 'user',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `)
     
     // Create sessions table
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS sessions (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id SERIAL PRIMARY KEY,
         user_id INTEGER,
-        token TEXT NOT NULL UNIQUE,
-        expires_at INTEGER NOT NULL,
-        created_at INTEGER DEFAULT (unixepoch())
+        token VARCHAR(255) NOT NULL UNIQUE,
+        expires_at TIMESTAMP NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `)
     
     // Create companies table
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS companies (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL,
-        business_license TEXT NOT NULL,
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        business_license VARCHAR(255) NOT NULL,
         address TEXT NOT NULL,
-        phone TEXT,
-        email TEXT,
+        phone VARCHAR(20),
+        email VARCHAR(255),
         owner_id INTEGER,
-        created_at INTEGER DEFAULT (unixepoch()),
-        updated_at INTEGER DEFAULT (unixepoch())
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `)
     
     // Create saccos table
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS saccos (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        sacco_name TEXT NOT NULL,
+        id SERIAL PRIMARY KEY,
+        sacco_name VARCHAR(255) NOT NULL,
         company_id INTEGER,
-        route TEXT,
-        created_at INTEGER DEFAULT (unixepoch()),
-        updated_at INTEGER DEFAULT (unixepoch())
+        route VARCHAR(255),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `)
     
     // Create vehicles table
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS vehicles (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL,
-        reg_number TEXT NOT NULL UNIQUE,
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        reg_number VARCHAR(20) NOT NULL UNIQUE,
         capacity INTEGER NOT NULL,
         sacco_id INTEGER,
         driver_id INTEGER,
-        status TEXT DEFAULT 'active',
-        created_at INTEGER DEFAULT (unixepoch()),
-        updated_at INTEGER DEFAULT (unixepoch())
+        status VARCHAR(50) DEFAULT 'active',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `)
     

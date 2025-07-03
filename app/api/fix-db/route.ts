@@ -8,9 +8,9 @@ export async function GET() {
     
     // Check what tables exist
     const tablesResult = await db.execute(sql`
-      SELECT name FROM sqlite_master 
-      WHERE type='table' 
-      ORDER BY name
+      SELECT table_name as name FROM information_schema.tables 
+      WHERE table_schema = 'public' 
+      ORDER BY table_name
     `)
     
     console.log("📋 Existing tables:", tablesResult)
@@ -19,11 +19,11 @@ export async function GET() {
     console.log("🔧 Creating sessions table...")
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS sessions (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id SERIAL PRIMARY KEY,
         user_id INTEGER,
-        token TEXT NOT NULL UNIQUE,
-        expires_at INTEGER NOT NULL,
-        created_at INTEGER DEFAULT (unixepoch())
+        token VARCHAR(255) NOT NULL UNIQUE,
+        expires_at TIMESTAMP NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `)
     console.log("✅ Sessions table created/verified")
@@ -32,15 +32,15 @@ export async function GET() {
     console.log("🔧 Creating users table...")
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        first_name TEXT NOT NULL,
-        last_name TEXT NOT NULL,
-        email TEXT NOT NULL UNIQUE,
-        phone TEXT,
-        password TEXT NOT NULL,
-        role TEXT NOT NULL DEFAULT 'user',
-        created_at INTEGER DEFAULT (unixepoch()),
-        updated_at INTEGER DEFAULT (unixepoch())
+        id SERIAL PRIMARY KEY,
+        first_name VARCHAR(255) NOT NULL,
+        last_name VARCHAR(255) NOT NULL,
+        email VARCHAR(255) NOT NULL UNIQUE,
+        phone VARCHAR(20),
+        password VARCHAR(255) NOT NULL,
+        role VARCHAR(50) NOT NULL DEFAULT 'user',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `)
     console.log("✅ Users table created/verified")
@@ -60,9 +60,9 @@ export async function GET() {
     
     // Check final table status
     const finalTablesResult = await db.execute(sql`
-      SELECT name FROM sqlite_master 
-      WHERE type='table' 
-      ORDER BY name
+      SELECT table_name as name FROM information_schema.tables 
+      WHERE table_schema = 'public' 
+      ORDER BY table_name
     `)
     
     const finalUserCountResult = await db.execute(sql`SELECT COUNT(*) as count FROM users`)
