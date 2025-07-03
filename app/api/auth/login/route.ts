@@ -13,6 +13,30 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Email and password are required" }, { status: 400 })
     }
 
+    // TEMPORARY: Hardcoded login for testing
+    // This bypasses database issues while we fix them
+    if (email === "ryanotieno@gmail.com" && password === "password1") {
+      console.log("✅ Using hardcoded driver login")
+      await createSession({
+        id: "1",
+        name: "Ryan Otieno",
+        email: "ryanotieno@gmail.com",
+        role: "driver",
+      })
+      return NextResponse.json({ success: true })
+    }
+    
+    if (email === "otieno.charles@gmail.com" && password === "owner123") {
+      console.log("✅ Using hardcoded owner login")
+      await createSession({
+        id: "2",
+        name: "Charles Otieno",
+        email: "otieno.charles@gmail.com",
+        role: "owner",
+      })
+      return NextResponse.json({ success: true })
+    }
+
     // Check credentials against the database
     const user = await userService.getByEmail(email)
     
