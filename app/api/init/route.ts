@@ -1,3 +1,4 @@
+// Trigger Vercel redeploy: trivial comment
 import { NextResponse } from "next/server"
 import { db } from "@/lib/database"
 import { sql } from "drizzle-orm"
