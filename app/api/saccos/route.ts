@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { saccoService, companyService, vehicleService } from "@/lib/db-service"
+import { db } from "@/lib/database"
 
 export async function GET(request: NextRequest) {
   try {
@@ -38,21 +39,61 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error("❌ Error fetching saccos:", error)
     
-    // If database tables don't exist, try to initialize them
+    // If database tables don't exist, try to initialize them directly
     if (error instanceof Error && error.message.includes("no such table")) {
-      console.log("🔧 Saccos table missing, attempting database initialization...")
+      console.log("🔧 Saccos table missing, attempting direct database initialization...")
       
       try {
-        // Try to initialize database
-        const initResponse = await fetch(`${request.nextUrl.origin}/api/init-database`)
-        if (initResponse.ok) {
-          console.log("✅ Database initialized, retrying saccos fetch...")
-          // Retry fetching saccos after initialization
-          const retrySaccos = await saccoService.getAll()
-          return NextResponse.json(retrySaccos)
-        }
+        // Create saccos table directly
+        await db.run(`
+          CREATE TABLE IF NOT EXISTS saccos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            sacco_name TEXT NOT NULL,
+            company_id INTEGER,
+            route TEXT,
+            created_at INTEGER DEFAULT (unixepoch()),
+            updated_at INTEGER DEFAULT (unixepoch())
+          )
+        `)
+        
+        // Create companies table if it doesn't exist
+        await db.run(`
+          CREATE TABLE IF NOT EXISTS companies (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            business_license TEXT NOT NULL,
+            address TEXT NOT NULL,
+            phone TEXT,
+            email TEXT,
+            owner_id INTEGER,
+            created_at INTEGER DEFAULT (unixepoch()),
+            updated_at INTEGER DEFAULT (unixepoch())
+          )
+        `)
+        
+        // Create vehicles table if it doesn't exist
+        await db.run(`
+          CREATE TABLE IF NOT EXISTS vehicles (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            reg_number TEXT NOT NULL UNIQUE,
+            capacity INTEGER NOT NULL,
+            sacco_id INTEGER,
+            driver_id INTEGER,
+            status TEXT DEFAULT 'active',
+            created_at INTEGER DEFAULT (unixepoch()),
+            updated_at INTEGER DEFAULT (unixepoch())
+          )
+        `)
+        
+        console.log("✅ Tables created, retrying saccos fetch...")
+        
+        // Retry fetching saccos after initialization
+        const retrySaccos = await saccoService.getAll()
+        return NextResponse.json(retrySaccos)
+        
       } catch (initError) {
-        console.error("❌ Failed to initialize database:", initError)
+        console.error("❌ Failed to create tables directly:", initError)
       }
       
       console.log("📝 Returning sample saccos data")
