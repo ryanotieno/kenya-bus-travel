@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { db } from "@/lib/database"
+import { sql } from "drizzle-orm"
 
 export async function GET() {
   try {
@@ -19,12 +20,13 @@ export async function GET() {
     
     for (const table of tables) {
       try {
-        const result = await db.run(`SELECT COUNT(*) as count FROM ${table}`)
+        const result = await db.execute(sql`SELECT COUNT(*) as count FROM ${sql.identifier(table)}`)
+        const count = result[0]?.count || 0
         status.tables[table] = {
           exists: true,
-          count: result.count
+          count: count
         }
-        status.data[table] = result.count
+        status.data[table] = count
       } catch (error) {
         status.tables[table] = {
           exists: false,
@@ -36,7 +38,7 @@ export async function GET() {
     
     // Check for sample users
     try {
-      const users = await db.run(`
+      const users = await db.execute(sql`
         SELECT id, first_name, last_name, email, role 
         FROM users 
         ORDER BY id 
@@ -49,7 +51,7 @@ export async function GET() {
     
     // Check for sample saccos
     try {
-      const saccos = await db.run(`
+      const saccos = await db.execute(sql`
         SELECT id, sacco_name, route 
         FROM saccos 
         ORDER BY id 

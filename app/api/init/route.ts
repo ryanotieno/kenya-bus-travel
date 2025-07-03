@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { db } from "@/lib/database"
+import { sql } from "drizzle-orm"
 
 export async function GET() {
   try {
@@ -11,8 +12,8 @@ export async function GET() {
     // Step 1: Create tables
     console.log("📋 Creating database tables...")
     
-    const createTablesSQL = `
-      -- Users table
+    // Create users table
+    await db.execute(sql`
       CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         first_name TEXT NOT NULL,
@@ -23,18 +24,22 @@ export async function GET() {
         role TEXT NOT NULL DEFAULT 'user',
         created_at INTEGER DEFAULT (unixepoch()),
         updated_at INTEGER DEFAULT (unixepoch())
-      );
-
-      -- Sessions table
+      )
+    `)
+    
+    // Create sessions table
+    await db.execute(sql`
       CREATE TABLE IF NOT EXISTS sessions (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER,
         token TEXT NOT NULL UNIQUE,
         expires_at INTEGER NOT NULL,
         created_at INTEGER DEFAULT (unixepoch())
-      );
-
-      -- Companies table
+      )
+    `)
+    
+    // Create companies table
+    await db.execute(sql`
       CREATE TABLE IF NOT EXISTS companies (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
@@ -45,9 +50,11 @@ export async function GET() {
         owner_id INTEGER,
         created_at INTEGER DEFAULT (unixepoch()),
         updated_at INTEGER DEFAULT (unixepoch())
-      );
-
-      -- Saccos table
+      )
+    `)
+    
+    // Create saccos table
+    await db.execute(sql`
       CREATE TABLE IF NOT EXISTS saccos (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         sacco_name TEXT NOT NULL,
@@ -55,9 +62,11 @@ export async function GET() {
         route TEXT,
         created_at INTEGER DEFAULT (unixepoch()),
         updated_at INTEGER DEFAULT (unixepoch())
-      );
-
-      -- Vehicles table
+      )
+    `)
+    
+    // Create vehicles table
+    await db.execute(sql`
       CREATE TABLE IF NOT EXISTS vehicles (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
@@ -68,74 +77,74 @@ export async function GET() {
         status TEXT DEFAULT 'active',
         created_at INTEGER DEFAULT (unixepoch()),
         updated_at INTEGER DEFAULT (unixepoch())
-      );
-    `
-
-    await db.run(createTablesSQL)
+      )
+    `)
+    
     console.log("✅ Tables created successfully")
     
     // Step 2: Insert sample data
     console.log("📝 Inserting sample data...")
     
     // Insert users
-    const usersSQL = `
+    await db.execute(sql`
       INSERT OR IGNORE INTO users (id, first_name, last_name, email, phone, password, role) VALUES
       (1, 'Charles', 'Otieno', 'otieno.charles@gmail.com', '+254700123456', 'password123', 'owner'),
       (2, 'Ryan', 'Otieno', 'ryanotieno@gmail.com', '+254700123457', 'password1', 'driver'),
       (3, 'John', 'Doe', 'john.doe@example.com', '+254700123458', 'password123', 'owner')
-    `
-    await db.run(usersSQL)
+    `)
     console.log("✅ Users inserted")
     
     // Insert companies
-    const companiesSQL = `
+    await db.execute(sql`
       INSERT OR IGNORE INTO companies (id, name, business_license, address, phone, email, owner_id) VALUES
       (1, 'Latema Transport Ltd', 'LIC001', 'Nairobi, Kenya', '+254700123456', 'info@latema.co.ke', 1),
       (2, 'Kiragi Transport', 'LIC002', 'Kisumu, Kenya', '+254700123457', 'info@kiragi.co.ke', 3)
-    `
-    await db.run(companiesSQL)
+    `)
     console.log("✅ Companies inserted")
     
     // Insert saccos
-    const saccosSQL = `
+    await db.execute(sql`
       INSERT OR IGNORE INTO saccos (id, sacco_name, company_id, route) VALUES
       (1, 'Latema Sacco', 1, 'Nairobi - Mombasa'),
       (2, 'Kiragi Sacco', 2, 'Nairobi - Kisumu')
-    `
-    await db.run(saccosSQL)
+    `)
     console.log("✅ Saccos inserted")
     
     // Insert vehicles
-    const vehiclesSQL = `
+    await db.execute(sql`
       INSERT OR IGNORE INTO vehicles (id, name, reg_number, capacity, sacco_id, status) VALUES
       (1, 'Latema Bus 1', 'KCA 123A', 45, 1, 'active'),
       (2, 'Kiragi Bus 1', 'KCA 456B', 52, 2, 'active')
-    `
-    await db.run(vehiclesSQL)
+    `)
     console.log("✅ Vehicles inserted")
     
     // Step 3: Verify setup
     console.log("🔍 Verifying setup...")
-    const userCount = await db.run("SELECT COUNT(*) as count FROM users")
-    const companyCount = await db.run("SELECT COUNT(*) as count FROM companies")
-    const saccoCount = await db.run("SELECT COUNT(*) as count FROM saccos")
-    const vehicleCount = await db.run("SELECT COUNT(*) as count FROM vehicles")
+    const userCountResult = await db.execute(sql`SELECT COUNT(*) as count FROM users`)
+    const companyCountResult = await db.execute(sql`SELECT COUNT(*) as count FROM companies`)
+    const saccoCountResult = await db.execute(sql`SELECT COUNT(*) as count FROM saccos`)
+    const vehicleCountResult = await db.execute(sql`SELECT COUNT(*) as count FROM vehicles`)
+    
+    const userCount = userCountResult[0]?.count || 0
+    const companyCount = companyCountResult[0]?.count || 0
+    const saccoCount = saccoCountResult[0]?.count || 0
+    const vehicleCount = vehicleCountResult[0]?.count || 0
     
     console.log("📊 Verification results:")
-    console.log(`   Users: ${userCount.count}`)
-    console.log(`   Companies: ${companyCount.count}`)
-    console.log(`   Saccos: ${saccoCount.count}`)
-    console.log(`   Vehicles: ${vehicleCount.count}`)
+    console.log(`   Users: ${userCount}`)
+    console.log(`   Companies: ${companyCount}`)
+    console.log(`   Saccos: ${saccoCount}`)
+    console.log(`   Vehicles: ${vehicleCount}`)
     
     return NextResponse.json({
       success: true,
       message: "Database initialized successfully!",
       environment: isProduction ? 'production' : 'development',
       data: {
-        users: userCount.count,
-        companies: companyCount.count,
-        saccos: saccoCount.count,
-        vehicles: vehicleCount.count
+        users: userCount,
+        companies: companyCount,
+        saccos: saccoCount,
+        vehicles: vehicleCount
       },
       testAccounts: {
         owner: { email: "otieno.charles@gmail.com", password: "password123" },
