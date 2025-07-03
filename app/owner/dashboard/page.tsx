@@ -43,7 +43,11 @@ export default function OwnerDashboard() {
     saccoName: "", 
     routeStart: "", 
     routeEnd: "", 
-    busStops: "" 
+    busStops: "",
+    companyName: "",
+    businessLicense: "",
+    address: "",
+    phone: ""
   })
   const [addingSacco, setAddingSacco] = useState(false)
   const [vehicleForm, setVehicleForm] = useState({
@@ -53,6 +57,8 @@ export default function OwnerDashboard() {
   })
   const [editId, setEditId] = useState<number | null>(null)
   const [animateIn, setAnimateIn] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [submitMessage, setSubmitMessage] = useState("")
 
   // Fetch session on mount
   useEffect(() => {
@@ -125,29 +131,36 @@ export default function OwnerDashboard() {
       vehicles,
     })
     
-    const response = await fetch("/api/companies", {
+    const response = await fetch("/api/saccos", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         ownerEmail: session.email,
         saccoName,
-        route,
         routeStart,
         routeEnd,
         busStops,
-        vehicles,
+        companyName: saccoForm.companyName,
+        businessLicense: saccoForm.businessLicense,
+        address: saccoForm.address,
+        phone: saccoForm.phone,
       }),
     })
     
     const result = await response.json()
     console.log('Save response:', result)
     
-    // Refresh sidebar
-    const res = await fetch("/api/companies")
-    const all = await res.json()
-    const mine = all.filter((c: any) => c.ownerEmail === session.email)
-    console.log('After save - my companies:', mine)
-    setCompanies(mine)
+    if (result.success) {
+      // Refresh sidebar
+      const res = await fetch("/api/companies")
+      const all = await res.json()
+      const mine = all.filter((c: any) => c.ownerEmail === session.email)
+      console.log('After save - my companies:', mine)
+      setCompanies(mine)
+    } else {
+      console.error('Failed to save sacco:', result.error)
+      // You could add toast notification here
+    }
   }
 
   // Sacco form handlers
@@ -158,21 +171,44 @@ export default function OwnerDashboard() {
     e.preventDefault()
     if (!saccoForm.saccoName.trim() || !saccoForm.routeStart.trim() || !saccoForm.routeEnd.trim()) return
     
-    // Parse bus stops from comma-separated string
-    const busStops = saccoForm.busStops
-      .split(',')
-      .map(stop => stop.trim())
-      .filter(stop => stop.length > 0)
+    setIsSubmitting(true)
+    setSubmitMessage("")
     
-    await saveSacco(
-      saccoForm.saccoName.trim(), 
-      saccoForm.routeStart.trim(), 
-      saccoForm.routeEnd.trim(), 
-      busStops, 
-      []
-    )
-    setSaccoForm({ saccoName: "", routeStart: "", routeEnd: "", busStops: "" })
-    setAddingSacco(false)
+    try {
+      // Parse bus stops from comma-separated string
+      const busStops = saccoForm.busStops
+        .split(',')
+        .map(stop => stop.trim())
+        .filter(stop => stop.length > 0)
+      
+      await saveSacco(
+        saccoForm.saccoName.trim(), 
+        saccoForm.routeStart.trim(), 
+        saccoForm.routeEnd.trim(), 
+        busStops, 
+        []
+      )
+      
+      setSubmitMessage("Sacco registered successfully!")
+      setTimeout(() => {
+        setSaccoForm({ 
+          saccoName: "", 
+          routeStart: "", 
+          routeEnd: "", 
+          busStops: "",
+          companyName: "",
+          businessLicense: "",
+          address: "",
+          phone: ""
+        })
+        setAddingSacco(false)
+        setSubmitMessage("")
+      }, 2000)
+    } catch (error) {
+      setSubmitMessage("Failed to register sacco. Please try again.")
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   // Vehicle form handlers
@@ -495,59 +531,149 @@ export default function OwnerDashboard() {
                           required
                         />
                       </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label htmlFor="routeStart" className="text-sm font-medium text-gray-700">Route Start</Label>
-                          <Input
-                            id="routeStart"
-                            name="routeStart"
-                            value={saccoForm.routeStart}
-                            onChange={handleSaccoFormChange}
-                            className="h-12 px-4 border-gray-200 focus:border-green-500 focus:ring-green-500 transition-all duration-300"
-                            placeholder="e.g. Nairobi"
-                            required
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="routeEnd" className="text-sm font-medium text-gray-700">Route End</Label>
-                          <Input
-                            id="routeEnd"
-                            name="routeEnd"
-                            value={saccoForm.routeEnd}
-                            onChange={handleSaccoFormChange}
-                            className="h-12 px-4 border-gray-200 focus:border-green-500 focus:ring-green-500 transition-all duration-300"
-                            placeholder="e.g. Kisumu"
-                            required
-                          />
+                      
+                      {/* Company Information Section */}
+                      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-xl border border-blue-100">
+                        <h4 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                          <Building2 className="h-4 w-4 text-blue-600" />
+                          Company Information
+                        </h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <Label htmlFor="companyName" className="text-sm font-medium text-gray-700">Company Name</Label>
+                            <Input
+                              id="companyName"
+                              name="companyName"
+                              value={saccoForm.companyName}
+                              onChange={handleSaccoFormChange}
+                              className="h-12 px-4 border-gray-200 focus:border-blue-500 focus:ring-blue-500 transition-all duration-300"
+                              placeholder="e.g. Latema Transport Ltd"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="businessLicense" className="text-sm font-medium text-gray-700">Business License</Label>
+                            <Input
+                              id="businessLicense"
+                              name="businessLicense"
+                              value={saccoForm.businessLicense}
+                              onChange={handleSaccoFormChange}
+                              className="h-12 px-4 border-gray-200 focus:border-blue-500 focus:ring-blue-500 transition-all duration-300"
+                              placeholder="e.g. LIC001"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="address" className="text-sm font-medium text-gray-700">Address</Label>
+                            <Input
+                              id="address"
+                              name="address"
+                              value={saccoForm.address}
+                              onChange={handleSaccoFormChange}
+                              className="h-12 px-4 border-gray-200 focus:border-blue-500 focus:ring-blue-500 transition-all duration-300"
+                              placeholder="e.g. Nairobi, Kenya"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="phone" className="text-sm font-medium text-gray-700">Phone</Label>
+                            <Input
+                              id="phone"
+                              name="phone"
+                              value={saccoForm.phone}
+                              onChange={handleSaccoFormChange}
+                              className="h-12 px-4 border-gray-200 focus:border-blue-500 focus:ring-blue-500 transition-all duration-300"
+                              placeholder="e.g. +254700123456"
+                            />
+                          </div>
                         </div>
                       </div>
-                      <div>
-                        <Label htmlFor="busStops" className="text-sm font-medium text-gray-700">Bus Stops</Label>
-                        <Input
-                          id="busStops"
-                          name="busStops"
-                          value={saccoForm.busStops}
-                          onChange={handleSaccoFormChange}
-                          className="h-12 px-4 border-gray-200 focus:border-green-500 focus:ring-green-500 transition-all duration-300"
-                          placeholder="e.g. Mombasa, Kakamega, Nakuru"
-                        />
-                        <p className="text-xs text-gray-500 mt-1">Enter bus stops between start and end points, separated by commas</p>
+                      
+                      {/* Route Information Section */}
+                      <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-4 rounded-xl border border-green-100">
+                        <h4 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                          <Route className="h-4 w-4 text-green-600" />
+                          Route Information
+                        </h4>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <Label htmlFor="routeStart" className="text-sm font-medium text-gray-700">Route Start</Label>
+                            <Input
+                              id="routeStart"
+                              name="routeStart"
+                              value={saccoForm.routeStart}
+                              onChange={handleSaccoFormChange}
+                              className="h-12 px-4 border-gray-200 focus:border-green-500 focus:ring-green-500 transition-all duration-300"
+                              placeholder="e.g. Nairobi"
+                              required
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="routeEnd" className="text-sm font-medium text-gray-700">Route End</Label>
+                            <Input
+                              id="routeEnd"
+                              name="routeEnd"
+                              value={saccoForm.routeEnd}
+                              onChange={handleSaccoFormChange}
+                              className="h-12 px-4 border-gray-200 focus:border-green-500 focus:ring-green-500 transition-all duration-300"
+                              placeholder="e.g. Kisumu"
+                              required
+                            />
+                          </div>
+                        </div>
+                        <div className="mt-4">
+                          <Label htmlFor="busStops" className="text-sm font-medium text-gray-700">Bus Stops</Label>
+                          <Input
+                            id="busStops"
+                            name="busStops"
+                            value={saccoForm.busStops}
+                            onChange={handleSaccoFormChange}
+                            className="h-12 px-4 border-gray-200 focus:border-green-500 focus:ring-green-500 transition-all duration-300"
+                            placeholder="e.g. Mombasa, Kakamega, Nakuru"
+                          />
+                          <p className="text-xs text-gray-500 mt-1">Enter bus stops between start and end points, separated by commas</p>
+                        </div>
                       </div>
+                      {submitMessage && (
+                        <div className={`p-4 rounded-xl ${
+                          submitMessage.includes("successfully") 
+                            ? "bg-green-50 border border-green-200 text-green-800" 
+                            : "bg-red-50 border border-red-200 text-red-800"
+                        }`}>
+                          <div className="flex items-center gap-2">
+                            {submitMessage.includes("successfully") ? (
+                              <CheckCircle className="h-5 w-5 text-green-600" />
+                            ) : (
+                              <AlertCircle className="h-5 w-5 text-red-600" />
+                            )}
+                            <span className="font-medium">{submitMessage}</span>
+                          </div>
+                        </div>
+                      )}
+                      
                       <div className="flex justify-end gap-3 pt-4">
                         <Button 
                           type="button" 
                           variant="outline" 
                           onClick={() => setAddingSacco(false)}
                           className="px-6 py-2"
+                          disabled={isSubmitting}
                         >
                           Cancel
                         </Button>
                         <Button 
                           type="submit"
-                          className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-medium px-6 py-2 rounded-lg shadow-lg hover:shadow-xl transition-all duration-300"
+                          disabled={isSubmitting}
+                          className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-medium px-6 py-2 rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          <Sparkles className="h-4 w-4 mr-2" />
-                          Register Sacco
+                          {isSubmitting ? (
+                            <>
+                              <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
+                              Registering...
+                            </>
+                          ) : (
+                            <>
+                              <Sparkles className="h-4 w-4 mr-2" />
+                              Register Sacco
+                            </>
+                          )}
                         </Button>
                       </div>
                     </form>

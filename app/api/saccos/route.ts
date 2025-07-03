@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { saccoService, companyService, vehicleService } from "@/lib/db-service"
+import { saccoService, companyService, vehicleService, routeService } from "@/lib/db-service"
 import { db } from "@/lib/database"
 
 export async function GET(request: NextRequest) {
@@ -39,5 +39,106 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error("❌ Error fetching saccos:", error)
     throw error // Re-throw the error so the client knows something went wrong
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json()
+    const { 
+      ownerEmail, 
+      saccoName, 
+      routeStart, 
+      routeEnd, 
+      busStops, 
+      companyName,
+      businessLicense,
+      address,
+      phone
+    } = body
+    
+    console.log("📝 Registering new sacco:", { ownerEmail, saccoName, routeStart, routeEnd })
+    
+    if (!ownerEmail || !saccoName) {
+      return NextResponse.json({ 
+        success: false, 
+        error: "Owner email and sacco name are required." 
+      }, { status: 400 })
+    }
+
+    // Find or create company for owner
+    let companies = await companyService.getAll()
+    let company = companies.find((c: any) => c.email === ownerEmail)
+    
+    if (!company) {
+      console.log("🏢 Creating new company for owner:", ownerEmail)
+      company = await companyService.create({
+        name: companyName || `${ownerEmail.split('@')[0]} Transport Ltd`,
+        businessLicense: businessLicense || "PENDING",
+        address: address || "N/A",
+        phone: phone || "",
+        email: ownerEmail,
+        ownerId: null,
+      })
+      console.log("✅ Created company:", company)
+    }
+
+    // Check if sacco already exists for this company
+    let saccos = await saccoService.getByCompanyId(company.id)
+    let existingSacco = saccos.find((s: any) => s.saccoName === saccoName)
+    
+    if (existingSacco) {
+      return NextResponse.json({ 
+        success: false, 
+        error: "A sacco with this name already exists for your company." 
+      }, { status: 409 })
+    }
+
+    // Create new sacco
+    const route = routeStart && routeEnd ? `${routeStart} - ${routeEnd}` : ""
+    const newSacco = await saccoService.create({
+      saccoName,
+      companyId: company.id,
+      route: route,
+    })
+    
+    console.log("✅ Created sacco:", newSacco)
+
+    // Create route for this sacco if routeStart and routeEnd are provided
+    if (routeStart && routeEnd) {
+      const newRoute = await routeService.create({
+        name: route,
+        startLocation: routeStart,
+        endLocation: routeEnd,
+        distance: 0, // Would need to calculate
+        estimatedTime: 0, // Would need to estimate
+        fare: 0, // Would need to set
+        saccoId: newSacco.id,
+        status: 'active'
+      })
+      console.log("✅ Created route:", newRoute)
+    }
+
+    // TODO: Handle bus stops if we have a busStops table
+    if (busStops && busStops.length > 0) {
+      console.log("📍 Bus stops to be added:", busStops)
+      // Would need to create busStops table and service
+    }
+
+    return NextResponse.json({ 
+      success: true, 
+      message: "Sacco registered successfully!",
+      data: {
+        sacco: newSacco,
+        company: company
+      }
+    })
+    
+  } catch (error) {
+    console.error("❌ Error registering sacco:", error)
+    return NextResponse.json({ 
+      success: false, 
+      error: "Failed to register sacco. Please try again." 
+    }, { status: 500 })
   }
 } 
