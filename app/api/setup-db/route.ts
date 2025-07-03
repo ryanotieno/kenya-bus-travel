@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { db } from "@/lib/database"
+import { sql } from "drizzle-orm"
 
 export async function GET() {
   try {
@@ -8,155 +9,151 @@ export async function GET() {
     const isProduction = process.env.NODE_ENV === 'production'
     console.log(`📊 Environment: ${isProduction ? 'Production (PostgreSQL)' : 'Development (SQLite)'}`)
     
-    if (isProduction) {
-      // For PostgreSQL, we'll use the schema directly
-      console.log("📊 Using PostgreSQL schema")
-      
-      // Import the PostgreSQL schema
-      const { users, companies, saccos, vehicles } = await import('@/lib/schema-pg')
-      
-      // For now, we'll assume tables exist in production
-      // In a real setup, you'd run migrations first
-      console.log("✅ Assuming PostgreSQL tables exist (run migrations if needed)")
-      
-    } else {
-      // For SQLite, create tables manually
-      console.log("📱 Using SQLite schema")
-      
-      const createTablesSQL = `
-        -- Users table
-        CREATE TABLE IF NOT EXISTS users (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          first_name TEXT NOT NULL,
-          last_name TEXT NOT NULL,
-          email TEXT NOT NULL UNIQUE,
-          phone TEXT,
-          password TEXT NOT NULL,
-          role TEXT NOT NULL DEFAULT 'user',
-          created_at INTEGER DEFAULT (unixepoch()),
-          updated_at INTEGER DEFAULT (unixepoch())
-        );
-
-        -- Companies table
-        CREATE TABLE IF NOT EXISTS companies (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          name TEXT NOT NULL,
-          business_license TEXT NOT NULL,
-          address TEXT NOT NULL,
-          phone TEXT,
-          email TEXT,
-          owner_id INTEGER,
-          created_at INTEGER DEFAULT (unixepoch()),
-          updated_at INTEGER DEFAULT (unixepoch())
-        );
-
-        -- Saccos table
-        CREATE TABLE IF NOT EXISTS saccos (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          sacco_name TEXT NOT NULL,
-          company_id INTEGER,
-          route TEXT,
-          created_at INTEGER DEFAULT (unixepoch()),
-          updated_at INTEGER DEFAULT (unixepoch())
-        );
-
-        -- Vehicles table
-        CREATE TABLE IF NOT EXISTS vehicles (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          name TEXT NOT NULL,
-          reg_number TEXT NOT NULL UNIQUE,
-          capacity INTEGER NOT NULL,
-          sacco_id INTEGER,
-          driver_id INTEGER,
-          status TEXT DEFAULT 'active',
-          created_at INTEGER DEFAULT (unixepoch()),
-          updated_at INTEGER DEFAULT (unixepoch())
-        );
-
-        -- Sessions table
-        CREATE TABLE IF NOT EXISTS sessions (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          user_id INTEGER,
-          token TEXT NOT NULL UNIQUE,
-          expires_at INTEGER NOT NULL,
-          created_at INTEGER DEFAULT (unixepoch())
-        );
-      `
-
-      await db.run(createTablesSQL)
-      console.log("✅ SQLite tables created successfully")
-    }
+    // Create tables using PostgreSQL syntax
+    console.log("📋 Creating database tables...")
+    
+    // Create users table
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        first_name VARCHAR(255) NOT NULL,
+        last_name VARCHAR(255) NOT NULL,
+        email VARCHAR(255) NOT NULL UNIQUE,
+        phone VARCHAR(20),
+        password VARCHAR(255) NOT NULL,
+        role VARCHAR(50) NOT NULL DEFAULT 'user',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `)
+    
+    // Create companies table
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS companies (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        business_license VARCHAR(255) NOT NULL,
+        address TEXT NOT NULL,
+        phone VARCHAR(20),
+        email VARCHAR(255),
+        owner_id INTEGER,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `)
+    
+    // Create saccos table
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS saccos (
+        id SERIAL PRIMARY KEY,
+        sacco_name VARCHAR(255) NOT NULL,
+        company_id INTEGER,
+        route VARCHAR(255),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `)
+    
+    // Create vehicles table
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS vehicles (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        reg_number VARCHAR(20) NOT NULL UNIQUE,
+        capacity INTEGER NOT NULL,
+        sacco_id INTEGER,
+        driver_id INTEGER,
+        status VARCHAR(50) DEFAULT 'active',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `)
+    
+    // Create sessions table
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS sessions (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER,
+        token VARCHAR(255) NOT NULL UNIQUE,
+        expires_at TIMESTAMP NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `)
+    
+    console.log("✅ Database tables created successfully")
     
     // Insert sample companies
     console.log("🏢 Inserting sample companies...")
-    const companiesSQL = `
-      INSERT OR IGNORE INTO companies (id, name, business_license, address, phone, email) VALUES
+    await db.execute(sql`
+      INSERT INTO companies (id, name, business_license, address, phone, email) VALUES
       (1, 'Latema Transport Ltd', 'LIC001', 'Nairobi, Kenya', '+254700123456', 'info@latema.co.ke'),
       (2, 'Kiragi Transport', 'LIC002', 'Kisumu, Kenya', '+254700123457', 'info@kiragi.co.ke'),
       (3, 'Kile Kile Transport', 'LIC003', 'Nakuru, Kenya', '+254700123458', 'info@kilekile.co.ke')
-    `
-    await db.run(companiesSQL)
+      ON CONFLICT (id) DO NOTHING
+    `)
     console.log("✅ Sample companies inserted")
     
     // Insert sample saccos
     console.log("🚌 Inserting sample saccos...")
-    const saccosSQL = `
-      INSERT OR IGNORE INTO saccos (id, sacco_name, company_id, route) VALUES
+    await db.execute(sql`
+      INSERT INTO saccos (id, sacco_name, company_id, route) VALUES
       (1, 'Latema Sacco', 1, 'Nairobi - Mombasa'),
       (2, 'Kiragi Sacco', 2, 'Nairobi - Kisumu'),
       (3, 'KILE KILE', 3, 'Nairobi - Nakuru')
-    `
-    await db.run(saccosSQL)
+      ON CONFLICT (id) DO NOTHING
+    `)
     console.log("✅ Sample saccos inserted")
     
     // Insert sample vehicles
     console.log("🚗 Inserting sample vehicles...")
-    const vehiclesSQL = `
-      INSERT OR IGNORE INTO vehicles (id, name, reg_number, capacity, sacco_id, status) VALUES
+    await db.execute(sql`
+      INSERT INTO vehicles (id, name, reg_number, capacity, sacco_id, status) VALUES
       (1, 'Latema Bus 1', 'KCA 123A', 45, 1, 'active'),
       (2, 'Kiragi Bus 1', 'KCA 456B', 52, 2, 'active'),
       (3, 'Kile Kile Bus 1', 'KCA 789C', 48, 3, 'active'),
       (4, 'Latema Bus 2', 'KCA 124A', 45, 1, 'active'),
       (5, 'Kiragi Bus 2', 'KCA 457B', 52, 2, 'active')
-    `
-    await db.run(vehiclesSQL)
+      ON CONFLICT (id) DO NOTHING
+    `)
     console.log("✅ Sample vehicles inserted")
     
     // Insert sample users (owners and drivers)
     console.log("👥 Inserting sample users...")
-    const usersSQL = `
-      INSERT OR IGNORE INTO users (id, first_name, last_name, email, phone, password, role) VALUES
+    await db.execute(sql`
+      INSERT INTO users (id, first_name, last_name, email, phone, password, role) VALUES
       (1, 'Charles', 'Otieno', 'otieno.charles@gmail.com', '+254700123456', 'password123', 'owner'),
       (2, 'John', 'Doe', 'john.doe@example.com', '+254700123457', 'password123', 'owner'),
       (3, 'Jane', 'Smith', 'jane.smith@example.com', '+254700123458', 'password123', 'owner'),
       (4, 'Ryan', 'Otieno', 'ryanotieno@gmail.com', '+254700123459', 'password1', 'driver'),
       (5, 'Alice', 'Johnson', 'alice.johnson@example.com', '+254700123460', 'password1', 'driver')
-    `
-    await db.run(usersSQL)
+      ON CONFLICT (id) DO NOTHING
+    `)
     console.log("✅ Sample users inserted")
     
     // Update companies with owner IDs
     console.log("🔗 Linking companies to owners...")
-    const updateCompaniesSQL = `
-      UPDATE companies SET owner_id = 1 WHERE id = 1;
-      UPDATE companies SET owner_id = 2 WHERE id = 2;
-      UPDATE companies SET owner_id = 3 WHERE id = 3;
-    `
-    await db.run(updateCompaniesSQL)
+    await db.execute(sql`UPDATE companies SET owner_id = 1 WHERE id = 1`)
+    await db.execute(sql`UPDATE companies SET owner_id = 2 WHERE id = 2`)
+    await db.execute(sql`UPDATE companies SET owner_id = 3 WHERE id = 3`)
     console.log("✅ Companies linked to owners")
     
     // Verify the setup
     console.log("🔍 Verifying database setup...")
-    const userCount = await db.run("SELECT COUNT(*) as count FROM users")
-    const companyCount = await db.run("SELECT COUNT(*) as count FROM companies")
-    const saccoCount = await db.run("SELECT COUNT(*) as count FROM saccos")
-    const vehicleCount = await db.run("SELECT COUNT(*) as count FROM vehicles")
+    const userCountResult = await db.execute(sql`SELECT COUNT(*) as count FROM users`)
+    const companyCountResult = await db.execute(sql`SELECT COUNT(*) as count FROM companies`)
+    const saccoCountResult = await db.execute(sql`SELECT COUNT(*) as count FROM saccos`)
+    const vehicleCountResult = await db.execute(sql`SELECT COUNT(*) as count FROM vehicles`)
+    
+    const userCount = userCountResult[0]?.count || 0
+    const companyCount = companyCountResult[0]?.count || 0
+    const saccoCount = saccoCountResult[0]?.count || 0
+    const vehicleCount = vehicleCountResult[0]?.count || 0
     
     console.log("📊 Database verification results:")
-    console.log(`   Users: ${userCount.count}`)
-    console.log(`   Companies: ${companyCount.count}`)
-    console.log(`   Saccos: ${saccoCount.count}`)
-    console.log(`   Vehicles: ${vehicleCount.count}`)
+    console.log(`   Users: ${userCount}`)
+    console.log(`   Companies: ${companyCount}`)
+    console.log(`   Saccos: ${saccoCount}`)
+    console.log(`   Vehicles: ${vehicleCount}`)
     
     return NextResponse.json({
       success: true,
@@ -165,10 +162,10 @@ export async function GET() {
       database: isProduction ? 'PostgreSQL' : 'SQLite',
       tables: ["users", "companies", "saccos", "vehicles", "sessions"],
       sampleData: {
-        users: userCount.count,
-        companies: companyCount.count,
-        saccos: saccoCount.count,
-        vehicles: vehicleCount.count
+        users: userCount,
+        companies: companyCount,
+        saccos: saccoCount,
+        vehicles: vehicleCount
       },
       testAccounts: {
         owners: [
