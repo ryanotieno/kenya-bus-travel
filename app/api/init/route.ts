@@ -81,6 +81,103 @@ export async function GET() {
       )
     `)
     
+    // Create routes table
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS routes (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        start_location VARCHAR(255) NOT NULL,
+        end_location VARCHAR(255) NOT NULL,
+        distance REAL,
+        estimated_time INTEGER,
+        fare REAL NOT NULL DEFAULT 0,
+        sacco_id INTEGER,
+        status VARCHAR(50) DEFAULT 'active',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `)
+    
+    // Create bus_stops table
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS bus_stops (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        location VARCHAR(255) NOT NULL,
+        latitude REAL,
+        longitude REAL,
+        route_id INTEGER,
+        stop_order INTEGER NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `)
+    
+    // Create trips table
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS trips (
+        id SERIAL PRIMARY KEY,
+        route_id INTEGER,
+        vehicle_id INTEGER,
+        driver_id INTEGER,
+        start_time TIMESTAMP,
+        end_time TIMESTAMP,
+        status VARCHAR(50) DEFAULT 'scheduled',
+        total_passengers INTEGER DEFAULT 0,
+        total_revenue REAL DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `)
+    
+    // Create tickets table
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS tickets (
+        id SERIAL PRIMARY KEY,
+        trip_id INTEGER,
+        passenger_id INTEGER,
+        from_stop VARCHAR(255) NOT NULL,
+        to_stop VARCHAR(255) NOT NULL,
+        fare REAL NOT NULL,
+        status VARCHAR(50) DEFAULT 'booked',
+        booked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        used_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `)
+    
+    // Create vehicle_locations table
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS vehicle_locations (
+        id SERIAL PRIMARY KEY,
+        vehicle_id INTEGER,
+        latitude REAL NOT NULL,
+        longitude REAL NOT NULL,
+        speed REAL,
+        heading REAL,
+        timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `)
+    
+    // Create driver_performance table
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS driver_performance (
+        id SERIAL PRIMARY KEY,
+        driver_id INTEGER,
+        date VARCHAR(10) NOT NULL,
+        trips_completed INTEGER DEFAULT 0,
+        total_revenue REAL DEFAULT 0,
+        total_distance REAL DEFAULT 0,
+        on_time_performance REAL DEFAULT 0,
+        safety_score REAL DEFAULT 0,
+        customer_rating REAL DEFAULT 0,
+        fuel_efficiency REAL DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `)
+    
     console.log("✅ Tables created successfully")
     
     // Step 2: Insert sample data
@@ -153,17 +250,20 @@ export async function GET() {
     const companyCountResult = await db.execute(sql`SELECT COUNT(*) as count FROM companies`)
     const saccoCountResult = await db.execute(sql`SELECT COUNT(*) as count FROM saccos`)
     const vehicleCountResult = await db.execute(sql`SELECT COUNT(*) as count FROM vehicles`)
+    const routeCountResult = await db.execute(sql`SELECT COUNT(*) as count FROM routes`)
     
     const userCount = userCountResult[0]?.count || 0
     const companyCount = companyCountResult[0]?.count || 0
     const saccoCount = saccoCountResult[0]?.count || 0
     const vehicleCount = vehicleCountResult[0]?.count || 0
+    const routeCount = routeCountResult[0]?.count || 0
     
     console.log("📊 Verification results:")
     console.log(`   Users: ${userCount}`)
     console.log(`   Companies: ${companyCount}`)
     console.log(`   Saccos: ${saccoCount}`)
     console.log(`   Vehicles: ${vehicleCount}`)
+    console.log(`   Routes: ${routeCount}`)
     
     return NextResponse.json({
       success: true,
@@ -173,7 +273,8 @@ export async function GET() {
         users: userCount,
         companies: companyCount,
         saccos: saccoCount,
-        vehicles: vehicleCount
+        vehicles: vehicleCount,
+        routes: routeCount
       },
       testAccounts: {
         owner: { email: "otieno.charles@gmail.com", password: "password123" },
