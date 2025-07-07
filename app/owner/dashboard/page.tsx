@@ -59,6 +59,9 @@ export default function OwnerDashboard() {
   const [animateIn, setAnimateIn] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitMessage, setSubmitMessage] = useState("")
+  const [userSaccos, setUserSaccos] = useState<any[]>([])
+  const [searchingUserSaccos, setSearchingUserSaccos] = useState(false)
+  const [userSaccosMessage, setUserSaccosMessage] = useState("")
 
   // Fetch session on mount
   useEffect(() => {
@@ -273,6 +276,32 @@ export default function OwnerDashboard() {
     await saveSacco(selectedSacco.saccoName, selectedSacco.routeStart, selectedSacco.routeEnd, selectedSacco.busStops, newVehicles, session.name)
   }
 
+  const handleSearchUserSaccos = async () => {
+    if (!session?.name) {
+      setUserSaccosMessage("Please log in to search for your saccos")
+      return
+    }
+    setSearchingUserSaccos(true)
+    setUserSaccosMessage("")
+    try {
+      const response = await fetch(`/api/saccos/my?ownerName=${encodeURIComponent(session.name)}`)
+      const data = await response.json()
+      if (data.success) {
+        setUserSaccos(data.data.saccos)
+        setUserSaccosMessage(data.message)
+      } else {
+        setUserSaccos([])
+        setUserSaccosMessage(data.error || "Failed to search for saccos")
+      }
+    } catch (error) {
+      console.error("Error searching for user saccos:", error)
+      setUserSaccos([])
+      setUserSaccosMessage("Error searching for saccos")
+    } finally {
+      setSearchingUserSaccos(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex items-center justify-center">
@@ -448,6 +477,69 @@ export default function OwnerDashboard() {
             animateIn ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
           }`}>
             
+            {/* Welcome Card and Stats */}
+            <div className="max-w-2xl mx-auto mb-8">
+              <Card className="border-blue-200 bg-gradient-to-r from-blue-50 to-white">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <span className="text-blue-700">🚌 Search My Saccos</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex flex-col gap-4">
+                    <Button 
+                      onClick={handleSearchUserSaccos} 
+                      disabled={searchingUserSaccos}
+                      className="w-fit bg-blue-600 hover:bg-blue-700"
+                    >
+                      {searchingUserSaccos ? "Searching..." : "Search My Saccos"}
+                    </Button>
+                    {userSaccosMessage && (
+                      <div className={`p-3 rounded-md ${
+                        userSaccos.length > 0 
+                          ? 'bg-green-50 text-green-700 border border-green-200' 
+                          : 'bg-yellow-50 text-yellow-700 border border-yellow-200'
+                      }`}>
+                        {userSaccosMessage}
+                      </div>
+                    )}
+                    {userSaccos.length > 0 && (
+                      <div className="mt-4">
+                        <h4 className="font-semibold mb-3 text-blue-700">Your Saccos:</h4>
+                        <div className="grid gap-3">
+                          {userSaccos.map((sacco, index) => (
+                            <div key={index} className="border border-blue-200 rounded-lg p-4 bg-white">
+                              <div className="flex justify-between items-start">
+                                <div>
+                                  <h5 className="font-bold text-blue-800">{sacco.saccoName}</h5>
+                                  <p className="text-sm text-gray-600 mt-1">
+                                    <strong>Route:</strong> {sacco.route || 'Not specified'}
+                                  </p>
+                                  {sacco.routeStart && sacco.routeEnd && (
+                                    <p className="text-sm text-gray-600">
+                                      <strong>Route:</strong> {sacco.routeStart} → {sacco.routeEnd}
+                                    </p>
+                                  )}
+                                  {sacco.busStops && (
+                                    <p className="text-sm text-gray-600 mt-1">
+                                      <strong>Bus Stops:</strong> {sacco.busStops}
+                                    </p>
+                                  )}
+                                </div>
+                                <Badge variant="outline" className="bg-blue-50 text-blue-700">
+                                  ID: {sacco.id}
+                                </Badge>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
             {/* Header Stats */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
               <Card className="bg-gradient-to-r from-blue-500 to-blue-600 text-white border-0 shadow-xl">
