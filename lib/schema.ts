@@ -10,6 +10,7 @@ export const users = pgTable('users', {
   phone: text('phone'),
   password: text('password').notNull(),
   role: text('role', { enum: ['user', 'driver', 'owner'] }).notNull().default('user'),
+  vehicleId: integer('vehicle_id').references(() => vehicles.id), // nullable, only for drivers
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 });
@@ -59,7 +60,6 @@ export const vehicles = pgTable('vehicles', {
   regNumber: text('reg_number').notNull().unique(),
   capacity: integer('capacity').notNull(),
   saccoId: integer('sacco_id').references(() => saccos.id),
-  driverId: integer('driver_id').references(() => users.id),
   status: text('status', { enum: ['active', 'maintenance', 'inactive'] }).default('active'),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),

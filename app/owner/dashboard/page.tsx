@@ -64,6 +64,8 @@ export default function OwnerDashboard() {
   const [userSaccosMessage, setUserSaccosMessage] = useState("")
   const [sidebarSaccos, setSidebarSaccos] = useState<any[]>([])
   const [sidebarSaccosLoading, setSidebarSaccosLoading] = useState(true)
+  const [vehicles, setVehicles] = useState<Vehicle[]>([])
+  const [vehiclesLoading, setVehiclesLoading] = useState(false)
 
   // Fetch session on mount
   useEffect(() => {
@@ -131,7 +133,6 @@ export default function OwnerDashboard() {
   }, [])
 
   const selectedSacco = sidebarSaccos.length > 0 ? sidebarSaccos[selectedSaccoIdx] : null;
-  const vehicles: Vehicle[] = selectedSacco && selectedSacco.vehicles ? selectedSacco.vehicles : [];
   const saccoRoute: string = selectedSacco ? (selectedSacco.route || (selectedSacco.routeStart && selectedSacco.routeEnd ? `${selectedSacco.routeStart} - ${selectedSacco.routeEnd}` : "")) : "";
 
   const parsedBusStops = selectedSacco && selectedSacco.busStops
@@ -141,6 +142,33 @@ export default function OwnerDashboard() {
             ? JSON.parse(selectedSacco.busStops)
             : []))
     : [];
+
+  // Fetch vehicles for the selected sacco
+  const fetchVehicles = async (saccoId: number) => {
+    setVehiclesLoading(true);
+    try {
+      const res = await fetch(`/api/vehicles?saccoId=${saccoId}`);
+      const data = await res.json();
+      if (data.success) {
+        setVehicles(data.vehicles);
+      } else {
+        setVehicles([]);
+      }
+    } catch (error) {
+      setVehicles([]);
+    } finally {
+      setVehiclesLoading(false);
+    }
+  };
+
+  // Fetch vehicles when selectedSacco changes
+  useEffect(() => {
+    if (selectedSacco && selectedSacco.id) {
+      fetchVehicles(selectedSacco.id);
+    } else {
+      setVehicles([]);
+    }
+  }, [selectedSacco]);
 
   // Save sacco to API
   const saveSacco = async (saccoName: string, routeStart: string, routeEnd: string, busStops: string[], vehicles: any[], ownerName: string) => {
@@ -254,36 +282,53 @@ export default function OwnerDashboard() {
     })
   }
   const handleAddOrEditVehicle = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!selectedSacco) return
-    let newVehicles
-    if (editId !== null) {
-      newVehicles = vehicles.map(v => v.id === editId ? { ...vehicleForm, id: editId } : v)
-      setEditId(null)
-    } else {
-      newVehicles = [
-        ...vehicles,
-        { ...vehicleForm, id: `temp_${Date.now()}` }, // Use temporary ID for new vehicles
-      ]
+    e.preventDefault();
+    if (!selectedSacco) return;
+    setIsSubmitting(true);
+    setSubmitMessage("");
+    try {
+      if (editId !== null) {
+        // For now, only support add. Edit can be implemented similarly with PUT.
+        setEditId(null);
+      } else {
+        // Add new vehicle
+        const res = await fetch('/api/vehicles', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: vehicleForm.name,
+            regNumber: vehicleForm.regNumber,
+            capacity: vehicleForm.capacity,
+            saccoId: selectedSacco.id,
+          }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          setSubmitMessage('Vehicle added successfully!');
+          fetchVehicles(selectedSacco.id);
+        } else {
+          setSubmitMessage(data.error || 'Failed to add vehicle.');
+        }
+      }
+      setVehicleForm({ name: '', regNumber: '', capacity: 30 });
+    } catch (error) {
+      setSubmitMessage('Failed to add vehicle.');
+    } finally {
+      setIsSubmitting(false);
     }
-    setVehicleForm({ name: "", regNumber: "", capacity: 30 })
-    console.log('Adding/editing vehicle with vehicles:', newVehicles)
-    await saveSacco(selectedSacco.saccoName, selectedSacco.routeStart, selectedSacco.routeEnd, selectedSacco.busStops, newVehicles, session.name)
-  }
-  const handleEditVehicle = (id: number) => {
-    const v = vehicles.find((v: any) => v.id === id)
-    if (v) {
-      setVehicleForm({ name: v.name, regNumber: v.regNumber, capacity: v.capacity })
-      setEditId(id)
-    }
-  }
+  };
   const handleDeleteVehicle = async (id: number) => {
-    if (!selectedSacco) return
-    const newVehicles = vehicles.filter((v: any) => v.id !== id)
-    setVehicleForm({ name: "", regNumber: "", capacity: 30 })
-    setEditId(null)
-    await saveSacco(selectedSacco.saccoName, selectedSacco.routeStart, selectedSacco.routeEnd, selectedSacco.busStops, newVehicles, session.name)
-  }
+    if (!selectedSacco) return;
+    // Implement DELETE endpoint if needed. For now, just remove from UI.
+    setVehicles(vehicles.filter(v => v.id !== id));
+  };
+  const handleEditVehicle = (id: number) => {
+    const v = vehicles.find((v: any) => v.id === id);
+    if (v) {
+      setVehicleForm({ name: v.name, regNumber: v.regNumber, capacity: v.capacity });
+      setEditId(id);
+    }
+  };
 
   const handleSearchUserSaccos = async () => {
     if (!session?.name) {
