@@ -3,8 +3,11 @@ import { vehicleService, saccoService } from "@/lib/db-service"
 
 export async function GET(request: NextRequest) {
   try {
+    console.log('🚀 GET /api/vehicles called');
     const { searchParams } = new URL(request.url)
     const saccoId = searchParams.get('saccoId')
+    console.log('📥 SaccoId from params:', saccoId);
+    
     let vehicles
     if (saccoId) {
       vehicles = await vehicleService.getAll()
@@ -12,10 +15,12 @@ export async function GET(request: NextRequest) {
     } else {
       vehicles = await vehicleService.getAll()
     }
+    console.log('✅ Vehicles fetched:', vehicles.length);
     return NextResponse.json({ success: true, vehicles })
   } catch (error) {
-    console.error("Error fetching vehicles:", error)
-    return NextResponse.json({ success: false, error: "Failed to fetch vehicles" }, { status: 500 })
+    console.error("❌ Error fetching vehicles:", error)
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    return NextResponse.json({ success: false, error: errorMessage || "Failed to fetch vehicles" }, { status: 500 })
   }
 }
 
@@ -35,8 +40,8 @@ export async function POST(request: NextRequest) {
     const vehicleData = {
       name,
       regNumber,
-      capacity,
-      saccoId,
+      capacity: Number(capacity),
+      saccoId: Number(saccoId),
       status: status || 'active',
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -48,6 +53,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true, vehicle })
   } catch (error) {
     console.error("❌ Error adding vehicle:", error)
-    return NextResponse.json({ success: false, error: "Failed to add vehicle" }, { status: 500 })
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    const errorStack = error instanceof Error ? error.stack : "No stack trace";
+    console.error("❌ Error details:", errorMessage);
+    console.error("❌ Error stack:", errorStack);
+    return NextResponse.json({ success: false, error: errorMessage || "Failed to add vehicle" }, { status: 500 })
   }
 }
