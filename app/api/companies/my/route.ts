@@ -35,10 +35,13 @@ export async function GET() {
     // Filter companies for this owner
     const ownerCompanies = companies.filter((company: any) => company.ownerName === owner.name)
     
-    console.log(`✅ Found ${ownerCompanies.length} companies for owner`)
+    // Also find saccos directly owned by this owner
+    const ownerSaccos = saccos.filter((sacco: any) => sacco.ownerName === owner.name)
+    
+    console.log(`✅ Found ${ownerCompanies.length} companies and ${ownerSaccos.length} saccos for owner`)
 
     // Transform data to match dashboard format
-    const transformedCompanies = ownerCompanies.map((company: any) => {
+    let transformedCompanies = ownerCompanies.map((company: any) => {
       const companySaccos = saccos.filter((sacco: any) => sacco.companyId === company.id)
       
       return {
@@ -66,6 +69,35 @@ export async function GET() {
         })
       }
     })
+
+    // If no companies found but owner has saccos, create a virtual company
+    if (transformedCompanies.length === 0 && ownerSaccos.length > 0) {
+      console.log("🏢 Creating virtual company for owner's saccos")
+      transformedCompanies = [{
+        ownerEmail: owner.email,
+        ownerName: owner.name,
+        companyName: `${owner.name}'s Company`,
+        saccos: ownerSaccos.map((sacco: any) => {
+          const saccoVehicles = vehicles.filter((vehicle: any) => vehicle.saccoId === sacco.id)
+          
+          console.log(`Sacco ${sacco.saccoName} has ${saccoVehicles.length} vehicles:`, saccoVehicles)
+          
+          return {
+            saccoName: sacco.saccoName,
+            route: sacco.route || "",
+            routeStart: sacco.routeStart || "",
+            routeEnd: sacco.routeEnd || "",
+            busStops: sacco.busStops ? JSON.parse(sacco.busStops) : [],
+            vehicles: saccoVehicles.map((vehicle: any) => ({
+              id: vehicle.id,
+              name: vehicle.name,
+              regNumber: vehicle.regNumber,
+              capacity: vehicle.capacity
+            }))
+          }
+        })
+      }]
+    }
     
     console.log("✅ Returning companies:", transformedCompanies)
     return NextResponse.json(transformedCompanies)
