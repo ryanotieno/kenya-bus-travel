@@ -196,14 +196,6 @@ export const vehicleService = {
 
   async getAvailableVehicles(): Promise<Vehicle[]> {
     return await db.select().from(vehicles).where(eq(vehicles.status, 'active'));
-  },
-
-  async updateDriver(vehicleId: number, driverId: number | null): Promise<Vehicle | null> {
-    const result = await db.update(vehicles)
-      .set({ driverId, updatedAt: new Date() })
-      .where(eq(vehicles.id, vehicleId))
-      .returning();
-    return result[0] || null;
   }
 };
 

@@ -37,7 +37,6 @@ type Vehicle = { id: number; name: string; regNumber: string; capacity: number }
 export default function OwnerDashboard() {
   const [session, setSession] = useState<any>(null)
   const [loading, setLoading] = useState(true)
-  const [companies, setCompanies] = useState<any[]>([])
   const [selectedSaccoIdx, setSelectedSaccoIdx] = useState(0)
   const [saccoForm, setSaccoForm] = useState({ 
     saccoName: "", 
@@ -89,43 +88,9 @@ export default function OwnerDashboard() {
     fetchSession()
   }, [])
 
-  // Fetch companies function
-  const fetchCompanies = async () => {
-    if (!session?.email) {
-      console.log('No session email found')
-      return
-    }
-    
-    try {
-      console.log('Fetching companies for email:', session.email)
-      console.log('Session data:', session)
-      
-      const res = await fetch("/api/companies/my")
-      console.log('Response status:', res.status)
-      
-      if (!res.ok) {
-        console.error('Failed to fetch companies:', res.status)
-        const errorText = await res.text()
-        console.error('Error response:', errorText)
-        return
-      }
-      
-      const mine = await res.json()
-      console.log('My companies:', mine)
-      setCompanies(mine)
-      
-      if (mine.length > 0 && mine[0].saccos.length > 0) {
-        setSelectedSaccoIdx(0)
-      }
-    } catch (error) {
-      console.error('Error fetching companies:', error)
-    }
-  }
-
-  // Fetch all companies for this owner
-  useEffect(() => {
-    fetchCompanies()
-  }, [session])
+  // Fetch saccos for the owner directly from /api/saccos/my or /api/saccos?ownerName=...
+  // For each selected sacco, fetch vehicles from /api/vehicles?saccoId=...
+  // Sidebar and main content should use saccos and vehicles only
 
   // Trigger entrance animation
   useEffect(() => {
@@ -208,7 +173,7 @@ export default function OwnerDashboard() {
       
       if (result.success) {
         // Auto-refresh the data
-        await fetchCompanies()
+        await fetchSidebarSaccos()
         console.log('✅ Sacco saved successfully, data refreshed')
         return true
       } else {
@@ -627,7 +592,7 @@ export default function OwnerDashboard() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-blue-100 text-sm font-medium">Total Saccos</p>
-                      <p className="text-3xl font-bold">{companies.length > 0 && companies[0].saccos ? companies[0].saccos.length : 0}</p>
+                      <p className="text-3xl font-bold">{sidebarSaccos.length}</p>
                     </div>
                     <div className="bg-blue-400/20 p-3 rounded-xl">
                       <Building2 className="h-8 w-8" />
@@ -642,9 +607,7 @@ export default function OwnerDashboard() {
                     <div>
                       <p className="text-green-100 text-sm font-medium">Total Vehicles</p>
                       <p className="text-3xl font-bold">
-                        {companies.length > 0 && companies[0].saccos 
-                          ? companies[0].saccos.reduce((acc: number, sacco: any) => acc + (sacco.vehicles?.length || 0), 0)
-                          : 0
+                        {sidebarSaccos.reduce((acc: number, sacco: any) => acc + (sacco.vehicles?.length || 0), 0)
                         }
                       </p>
                     </div>
@@ -660,7 +623,7 @@ export default function OwnerDashboard() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-purple-100 text-sm font-medium">Active Routes</p>
-                      <p className="text-3xl font-bold">{companies.length > 0 && companies[0].saccos ? companies[0].saccos.length : 0}</p>
+                      <p className="text-3xl font-bold">{sidebarSaccos.length}</p>
                     </div>
                     <div className="bg-purple-400/20 p-3 rounded-xl">
                       <Route className="h-8 w-8" />
@@ -675,10 +638,8 @@ export default function OwnerDashboard() {
                     <div>
                       <p className="text-orange-100 text-sm font-medium">Total Capacity</p>
                       <p className="text-3xl font-bold">
-                        {companies.length > 0 && companies[0].saccos 
-                          ? companies[0].saccos.reduce((acc: number, sacco: any) => 
-                              acc + (sacco.vehicles?.reduce((vAcc: number, v: any) => vAcc + (v.capacity || 0), 0) || 0), 0)
-                          : 0
+                        {sidebarSaccos.reduce((acc: number, sacco: any) => 
+                          acc + (sacco.vehicles?.reduce((vAcc: number, v: any) => vAcc + (v.capacity || 0), 0) || 0), 0)
                         }
                       </p>
                     </div>
