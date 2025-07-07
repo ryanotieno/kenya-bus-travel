@@ -122,4 +122,31 @@ export async function GET() {
       error: "Failed to test Ryan Otieno owner status"
     }, { status: 500 })
   }
+}
+
+export async function POST(request: Request) {
+  try {
+    console.log("🚦 POST /api/vehicles called");
+    const body = await request.json();
+    console.log("Received body:", body);
+    const { name, regNumber, capacity, saccoId, status } = body;
+    if (!name || !regNumber || !capacity || !saccoId) {
+      console.log("❌ Missing required fields", { name, regNumber, capacity, saccoId });
+      return NextResponse.json({ success: false, error: "Missing required fields" }, { status: 400 });
+    }
+    const vehicle = await vehicleService.create({
+      name,
+      regNumber,
+      capacity,
+      saccoId,
+      status: status || 'active',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    console.log("✅ Vehicle created:", vehicle);
+    return NextResponse.json({ success: true, vehicle });
+  } catch (error) {
+    console.error("Error adding vehicle:", error);
+    return NextResponse.json({ success: false, error: "Failed to add vehicle" }, { status: 500 });
+  }
 } 
