@@ -134,6 +134,14 @@ export default function OwnerDashboard() {
   const vehicles: Vehicle[] = selectedSacco && selectedSacco.vehicles ? selectedSacco.vehicles : [];
   const saccoRoute: string = selectedSacco ? (selectedSacco.route || (selectedSacco.routeStart && selectedSacco.routeEnd ? `${selectedSacco.routeStart} - ${selectedSacco.routeEnd}` : "")) : "";
 
+  const parsedBusStops = selectedSacco && selectedSacco.busStops
+    ? (Array.isArray(selectedSacco.busStops)
+        ? selectedSacco.busStops
+        : (typeof selectedSacco.busStops === 'string' && selectedSacco.busStops.trim().startsWith('[')
+            ? JSON.parse(selectedSacco.busStops)
+            : []))
+    : [];
+
   // Save sacco to API
   const saveSacco = async (saccoName: string, routeStart: string, routeEnd: string, busStops: string[], vehicles: any[], ownerName: string) => {
     if (!ownerName) return
@@ -859,7 +867,7 @@ export default function OwnerDashboard() {
                             <Label className="text-sm font-semibold text-gray-700">Bus Stops</Label>
                           </div>
                           <div className="flex flex-wrap gap-2">
-                            {selectedSacco.busStops.map((stop: string, index: number) => (
+                            {parsedBusStops.map((stop: string, index: number) => (
                               <Badge key={index} className="bg-green-100 text-green-800 border-green-200">
                                 {stop}
                               </Badge>
