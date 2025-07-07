@@ -130,10 +130,9 @@ export default function OwnerDashboard() {
     setTimeout(() => setAnimateIn(true), 100)
   }, [])
 
-  // Get selected sacco
-  const selectedSacco = companies.length > 0 && companies[0].saccos.length > 0 ? companies[0].saccos[selectedSaccoIdx] : null
-  const vehicles: Vehicle[] = selectedSacco ? selectedSacco.vehicles : []
-  const saccoRoute: string = selectedSacco ? selectedSacco.route : ""
+  const selectedSacco = sidebarSaccos.length > 0 ? sidebarSaccos[selectedSaccoIdx] : null;
+  const vehicles: Vehicle[] = selectedSacco && selectedSacco.vehicles ? selectedSacco.vehicles : [];
+  const saccoRoute: string = selectedSacco ? (selectedSacco.route || (selectedSacco.routeStart && selectedSacco.routeEnd ? `${selectedSacco.routeStart} - ${selectedSacco.routeEnd}` : "")) : "";
 
   // Save sacco to API
   const saveSacco = async (saccoName: string, routeStart: string, routeEnd: string, busStops: string[], vehicles: any[], ownerName: string) => {
