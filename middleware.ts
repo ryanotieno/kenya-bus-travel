@@ -14,7 +14,7 @@ export async function middleware(request: NextRequest) {
   console.log(`🍪 Session cookie: ${session ? 'Present' : 'Missing'}`)
 
   // Public routes that don't require authentication
-  const publicRoutes = ["/", "/login", "/register", "/api/auth/login", "/api/auth/register", "/api/auth/session"]
+  const publicRoutes = ["/", "/login", "/register", "/api/auth/login", "/api/auth/register", "/api/auth/session", "/api/test", "/api/test-vehicle"]
   const isPublicRoute = publicRoutes.some(route => url === route || url.startsWith(route + "/"))
 
   // If it's a public route, allow access
@@ -82,7 +82,7 @@ export const config = {
     // Protect specific API routes that need authentication
     "/api/drivers/:path*",
     "/api/companies/:path*",
-    "/api/vehicles/:path*",
+    // "/api/vehicles/:path*", // Temporarily disabled for testing
     "/api/routes/:path*",
     "/api/trips/:path*",
     "/api/tickets/:path*",
