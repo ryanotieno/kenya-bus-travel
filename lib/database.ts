@@ -8,6 +8,7 @@ let db: any;
 if (process.env.DATABASE_URL) {
   try {
     console.log('📊 Connecting to Neon PostgreSQL...');
+    console.log("🚨 DB URL:", process.env.DATABASE_URL);
     const sql = neon(process.env.DATABASE_URL);
     db = drizzle(sql, { schema });
     console.log('✅ Successfully connected to Neon PostgreSQL');
