@@ -248,6 +248,9 @@ export default function OwnerDashboard() {
   }
   const handleAddOrEditVehicle = async (e: React.FormEvent) => {
     console.log('🚀 handleAddOrEditVehicle called');
+    console.log('Event type:', e.type);
+    console.log('Event target:', e.target);
+    
     e.preventDefault();
     console.log('✅ Form submission prevented');
     
@@ -256,6 +259,13 @@ export default function OwnerDashboard() {
       return;
     }
     console.log('✅ selectedSacco exists:', selectedSacco);
+    
+    if (!vehicleForm.name || !vehicleForm.regNumber || !vehicleForm.capacity) {
+      console.log('❌ Form validation failed:', vehicleForm);
+      setSubmitMessage('Please fill in all required fields.');
+      return;
+    }
+    console.log('✅ Form validation passed');
     
     setIsSubmitting(true);
     setSubmitMessage("");
@@ -973,14 +983,24 @@ export default function OwnerDashboard() {
                             required
                           />
                         </div>
-                        <div className="flex items-end">
+                        <div className="flex items-end gap-2">
                           <Button 
                             type="submit"
-                            className="w-full h-12 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-medium rounded-lg shadow-lg hover:shadow-xl transition-all duration-300"
-                            onClick={() => console.log('🔘 Add Vehicle button clicked')}
+                            className="flex-1 h-12 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-medium rounded-lg shadow-lg hover:shadow-xl transition-all duration-300"
                           >
                             <Zap className="h-4 w-4 mr-2" />
                             {editId !== null ? "Update" : "Add Vehicle"}
+                          </Button>
+                          <Button 
+                            type="button"
+                            onClick={() => {
+                              console.log('🧪 Test button clicked');
+                              console.log('Current vehicleForm:', vehicleForm);
+                              console.log('Current selectedSacco:', selectedSacco);
+                            }}
+                            className="px-4 h-12 bg-blue-500 hover:bg-blue-600 text-white font-medium rounded-lg"
+                          >
+                            Test
                           </Button>
                         </div>
                       </form>
