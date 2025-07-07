@@ -247,27 +247,44 @@ export default function OwnerDashboard() {
     })
   }
   const handleAddOrEditVehicle = async (e: React.FormEvent) => {
+    console.log('🚀 handleAddOrEditVehicle called');
     e.preventDefault();
-    if (!selectedSacco) return;
+    console.log('✅ Form submission prevented');
+    
+    if (!selectedSacco) {
+      console.log('❌ No selectedSacco');
+      return;
+    }
+    console.log('✅ selectedSacco exists:', selectedSacco);
+    
     setIsSubmitting(true);
     setSubmitMessage("");
+    
     try {
       if (editId !== null) {
+        console.log('📝 Edit mode - not implemented yet');
         // For now, only support add. Edit can be implemented similarly with PUT.
         setEditId(null);
       } else {
         // Add new vehicle
+        const vehicleData = {
+          name: vehicleForm.name,
+          regNumber: vehicleForm.regNumber,
+          capacity: vehicleForm.capacity,
+          saccoId: selectedSacco.id,
+        };
+        console.log('📤 Sending vehicle data:', vehicleData);
+        
         const res = await fetch('/api/vehicles', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: vehicleForm.name,
-            regNumber: vehicleForm.regNumber,
-            capacity: vehicleForm.capacity,
-            saccoId: selectedSacco.id,
-          }),
+          body: JSON.stringify(vehicleData),
         });
+        console.log('📥 Response received:', res.status, res.statusText);
+        
         const data = await res.json();
+        console.log('📄 Response data:', data);
+        
         if (data.success) {
           setSubmitMessage('Vehicle added successfully!');
           fetchVehicles(selectedSacco.id);
@@ -277,6 +294,7 @@ export default function OwnerDashboard() {
       }
       setVehicleForm({ name: '', regNumber: '', capacity: 30 });
     } catch (error) {
+      console.error('❌ Error in handleAddOrEditVehicle:', error);
       setSubmitMessage('Failed to add vehicle.');
     } finally {
       setIsSubmitting(false);
@@ -910,7 +928,13 @@ export default function OwnerDashboard() {
                         <Plus className="h-5 w-5 text-green-600" />
                         {editId !== null ? 'Edit Vehicle' : 'Add New Vehicle'}
                       </h3>
-                      <form className="grid grid-cols-1 md:grid-cols-4 gap-4" onSubmit={handleAddOrEditVehicle}>
+                      <form 
+                        className="grid grid-cols-1 md:grid-cols-4 gap-4" 
+                        onSubmit={(e) => {
+                          console.log('🎯 Form onSubmit triggered');
+                          handleAddOrEditVehicle(e);
+                        }}
+                      >
                         <div>
                           <Label htmlFor="vehicleName" className="text-sm font-medium text-gray-700">Vehicle Name</Label>
                           <Input
@@ -953,6 +977,7 @@ export default function OwnerDashboard() {
                           <Button 
                             type="submit"
                             className="w-full h-12 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-medium rounded-lg shadow-lg hover:shadow-xl transition-all duration-300"
+                            onClick={() => console.log('🔘 Add Vehicle button clicked')}
                           >
                             <Zap className="h-4 w-4 mr-2" />
                             {editId !== null ? "Update" : "Add Vehicle"}
