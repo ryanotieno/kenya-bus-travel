@@ -62,6 +62,8 @@ export default function OwnerDashboard() {
   const [userSaccos, setUserSaccos] = useState<any[]>([])
   const [searchingUserSaccos, setSearchingUserSaccos] = useState(false)
   const [userSaccosMessage, setUserSaccosMessage] = useState("")
+  const [sidebarSaccos, setSidebarSaccos] = useState<any[]>([])
+  const [sidebarSaccosLoading, setSidebarSaccosLoading] = useState(true)
 
   // Fetch session on mount
   useEffect(() => {
@@ -302,6 +304,37 @@ export default function OwnerDashboard() {
     }
   }
 
+  // Fetch saccos for sidebar
+  const fetchSidebarSaccos = async () => {
+    if (!session?.name) return
+    setSidebarSaccosLoading(true)
+    try {
+      const response = await fetch(`/api/saccos/my?ownerName=${encodeURIComponent(session.name)}`)
+      const data = await response.json()
+      if (data.success) {
+        setSidebarSaccos(data.data.saccos)
+      } else {
+        setSidebarSaccos([])
+      }
+    } catch (error) {
+      setSidebarSaccos([])
+    } finally {
+      setSidebarSaccosLoading(false)
+    }
+  }
+
+  // Fetch sidebar saccos on session load and after sacco changes
+  useEffect(() => {
+    if (session?.name) {
+      fetchSidebarSaccos()
+    }
+  }, [session])
+
+  // Call fetchSidebarSaccos after adding a sacco or using the search button
+  const handleAfterSaccoChange = () => {
+    fetchSidebarSaccos()
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex items-center justify-center">
@@ -390,11 +423,12 @@ export default function OwnerDashboard() {
                 My Saccos
               </h3>
               <Badge className="bg-green-100 text-green-800">
-                {companies.length > 0 && companies[0].saccos ? companies[0].saccos.length : 0}
+                {sidebarSaccos.length}
               </Badge>
             </div>
-            
-            {companies.length === 0 || companies[0].saccos.length === 0 ? (
+            {sidebarSaccosLoading ? (
+              <div className="text-center py-8 text-gray-400">Loading...</div>
+            ) : sidebarSaccos.length === 0 ? (
               <div className="text-center py-8">
                 <div className="bg-gray-100 text-gray-400 p-4 rounded-xl mx-auto mb-4 w-16 h-16 flex items-center justify-center">
                   <Bus className="h-8 w-8" />
@@ -410,7 +444,7 @@ export default function OwnerDashboard() {
               </div>
             ) : (
               <div className="space-y-3">
-                {companies[0].saccos.map((s: any, idx: number) => (
+                {sidebarSaccos.map((s: any, idx: number) => (
                   <div key={s.saccoName} className="group">
                     <button
                       className={`w-full text-left p-4 rounded-xl border-2 transition-all duration-300 ${
@@ -426,9 +460,7 @@ export default function OwnerDashboard() {
                           <CheckCircle className="h-5 w-5" />
                         )}
                       </div>
-                      <div className={`text-sm ${selectedSaccoIdx === idx ? 'text-green-100' : 'text-gray-500'}`}>
-                        {s.vehicles?.length || 0} vehicles
-                      </div>
+                      <div className={`text-sm ${selectedSaccoIdx === idx ? 'text-green-100' : 'text-gray-500'}`}>{s.vehicles?.length || 0} vehicles</div>
                     </button>
                     {selectedSaccoIdx === idx && s.vehicles && s.vehicles.length > 0 && (
                       <div className="mt-3 ml-4 space-y-2">
@@ -436,15 +468,11 @@ export default function OwnerDashboard() {
                           <div key={v.id} className="flex items-center gap-2 text-sm text-gray-600">
                             <Car className="h-4 w-4 text-green-500" />
                             <span>{v.name}</span>
-                            <Badge variant="outline" className="text-xs">
-                              {v.regNumber}
-                            </Badge>
+                            <Badge variant="outline" className="text-xs">{v.regNumber}</Badge>
                           </div>
                         ))}
                         {s.vehicles.length > 3 && (
-                          <div className="text-xs text-gray-400">
-                            +{s.vehicles.length - 3} more vehicles
-                          </div>
+                          <div className="text-xs text-gray-400">+{s.vehicles.length - 3} more vehicles</div>
                         )}
                       </div>
                     )}
