@@ -239,75 +239,49 @@ export default function OwnerDashboard() {
     }
   }
 
-  // Vehicle form handlers
+  // Vehicle form handlers - simplified
   const handleVehicleFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setVehicleForm({
       ...vehicleForm,
       [e.target.name]: e.target.name === "capacity" ? Number(e.target.value) : e.target.value,
     })
   }
-  const handleAddOrEditVehicle = async (e: React.FormEvent) => {
-    console.log('🚀 handleAddOrEditVehicle called');
-    console.log('Event type:', e.type);
-    console.log('Event target:', e.target);
-    
-    e.preventDefault();
-    console.log('✅ Form submission prevented');
-    
+  const addVehicle = async () => {
     if (!selectedSacco) {
-      console.log('❌ No selectedSacco');
+      alert('Please select a sacco first');
       return;
     }
-    console.log('✅ selectedSacco exists:', selectedSacco);
-    
+
     if (!vehicleForm.name || !vehicleForm.regNumber || !vehicleForm.capacity) {
-      console.log('❌ Form validation failed:', vehicleForm);
-      setSubmitMessage('Please fill in all required fields.');
+      alert('Please fill in all fields');
       return;
     }
-    console.log('✅ Form validation passed');
-    
-    setIsSubmitting(true);
-    setSubmitMessage("");
-    
+
     try {
-      if (editId !== null) {
-        console.log('📝 Edit mode - not implemented yet');
-        // For now, only support add. Edit can be implemented similarly with PUT.
-        setEditId(null);
-      } else {
-        // Add new vehicle
-        const vehicleData = {
+      const response = await fetch('/api/vehicles', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           name: vehicleForm.name,
           regNumber: vehicleForm.regNumber,
           capacity: vehicleForm.capacity,
           saccoId: selectedSacco.id,
-        };
-        console.log('📤 Sending vehicle data:', vehicleData);
-        
-        const res = await fetch('/api/vehicles', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(vehicleData),
-        });
-        console.log('📥 Response received:', res.status, res.statusText);
-        
-        const data = await res.json();
-        console.log('📄 Response data:', data);
-        
-        if (data.success) {
-          setSubmitMessage('Vehicle added successfully!');
-          fetchVehicles(selectedSacco.id);
-        } else {
-          setSubmitMessage(data.error || 'Failed to add vehicle.');
-        }
+        }),
+      });
+
+      const result = await response.json();
+      
+      if (result.success) {
+        // Clear form
+        setVehicleForm({ name: '', regNumber: '', capacity: 30 });
+        // Refresh vehicles list
+        fetchVehicles(selectedSacco.id);
+        alert('Vehicle added successfully!');
+      } else {
+        alert(result.error || 'Failed to add vehicle');
       }
-      setVehicleForm({ name: '', regNumber: '', capacity: 30 });
     } catch (error) {
-      console.error('❌ Error in handleAddOrEditVehicle:', error);
-      setSubmitMessage('Failed to add vehicle.');
-    } finally {
-      setIsSubmitting(false);
+      alert('Error adding vehicle');
     }
   };
   const handleDeleteVehicle = async (id: number) => {
@@ -932,78 +906,53 @@ export default function OwnerDashboard() {
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-6">
-                    {/* Add Vehicle Form */}
+                    {/* Add Vehicle Section */}
                     <div className="bg-gradient-to-r from-gray-50 to-slate-50 p-6 rounded-xl border border-gray-200">
                       <h3 className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
                         <Plus className="h-5 w-5 text-green-600" />
-                        {editId !== null ? 'Edit Vehicle' : 'Add New Vehicle'}
+                        Add New Vehicle
                       </h3>
-                      <form 
-                        className="grid grid-cols-1 md:grid-cols-4 gap-4" 
-                        onSubmit={(e) => {
-                          console.log('🎯 Form onSubmit triggered');
-                          handleAddOrEditVehicle(e);
-                        }}
-                      >
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                         <div>
-                          <Label htmlFor="vehicleName" className="text-sm font-medium text-gray-700">Vehicle Name</Label>
+                          <Label className="text-sm font-medium text-gray-700">Vehicle Name</Label>
                           <Input
-                            id="vehicleName"
-                            name="name"
                             value={vehicleForm.name}
-                            onChange={handleVehicleFormChange}
-                            className="h-12 px-4 border-gray-200 focus:border-green-500 focus:ring-green-500 transition-all duration-300"
+                            onChange={(e) => setVehicleForm({...vehicleForm, name: e.target.value})}
+                            className="h-12 px-4 border-gray-200 focus:border-green-500 focus:ring-green-500"
                             placeholder="e.g. Express Bus"
-                            required
                           />
                         </div>
                         <div>
-                          <Label htmlFor="regNumber" className="text-sm font-medium text-gray-700">Registration</Label>
+                          <Label className="text-sm font-medium text-gray-700">Registration</Label>
                           <Input
-                            id="regNumber"
-                            name="regNumber"
                             value={vehicleForm.regNumber}
-                            onChange={handleVehicleFormChange}
-                            className="h-12 px-4 border-gray-200 focus:border-green-500 focus:ring-green-500 transition-all duration-300"
+                            onChange={(e) => setVehicleForm({...vehicleForm, regNumber: e.target.value})}
+                            className="h-12 px-4 border-gray-200 focus:border-green-500 focus:ring-green-500"
                             placeholder="e.g. KCA 123A"
-                            required
                           />
                         </div>
                         <div>
-                          <Label htmlFor="capacity" className="text-sm font-medium text-gray-700">Capacity</Label>
+                          <Label className="text-sm font-medium text-gray-700">Capacity</Label>
                           <Input
-                            id="capacity"
-                            name="capacity"
                             type="number"
                             min={1}
                             value={vehicleForm.capacity}
-                            onChange={handleVehicleFormChange}
-                            className="h-12 px-4 border-gray-200 focus:border-green-500 focus:ring-green-500 transition-all duration-300"
+                            onChange={(e) => setVehicleForm({...vehicleForm, capacity: Number(e.target.value)})}
+                            className="h-12 px-4 border-gray-200 focus:border-green-500 focus:ring-green-500"
                             placeholder="30"
-                            required
                           />
                         </div>
-                        <div className="flex items-end gap-2">
+                        <div className="flex items-end">
                           <Button 
-                            type="submit"
-                            className="flex-1 h-12 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-medium rounded-lg shadow-lg hover:shadow-xl transition-all duration-300"
+                            onClick={addVehicle}
+                            className="w-full h-12 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-medium rounded-lg shadow-lg hover:shadow-xl transition-all duration-300"
                           >
                             <Zap className="h-4 w-4 mr-2" />
-                            {editId !== null ? "Update" : "Add Vehicle"}
-                          </Button>
-                          <Button 
-                            type="button"
-                            onClick={() => {
-                              console.log('🧪 Test button clicked');
-                              console.log('Current vehicleForm:', vehicleForm);
-                              console.log('Current selectedSacco:', selectedSacco);
-                            }}
-                            className="px-4 h-12 bg-blue-500 hover:bg-blue-600 text-white font-medium rounded-lg"
-                          >
-                            Test
+                            Add Vehicle
                           </Button>
                         </div>
-                      </form>
+                      </div>
                     </div>
 
                     {/* Vehicles Table */}
