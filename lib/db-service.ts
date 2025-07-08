@@ -35,9 +35,11 @@ import {
   type DriverPerformance,
   type NewDriverPerformance,
   type Session,
-  type NewSession
+  type NewSession,
+  drivers
 } from './schema';
 import { eq, and, desc, asc, sql } from 'drizzle-orm';
+import type { Driver } from './schema';
 
 // User operations
 export const userService = {
@@ -219,12 +221,8 @@ export const vehicleService = {
   },
 
   async getByDriverId(driverId: number): Promise<Vehicle | null> {
-    // Get the user first to find their assigned vehicle
-    const user = await userService.getById(driverId);
-    if (user && user.vehicleId) {
-      return await this.getById(user.vehicleId);
-    }
-    return null;
+    const result = await db.select().from(vehicles).where(eq(vehicles.driverId, driverId));
+    return result[0] || null;
   }
 };
 
@@ -395,5 +393,73 @@ export const vehicleLocationService = {
       .where(eq(vehicleLocations.vehicleId, vehicleId))
       .orderBy(desc(vehicleLocations.timestamp))
       .limit(limit);
+  }
+};
+
+// Driver operations
+export const driverService = {
+  async create(driverData: any): Promise<Driver> {
+    const result = await db.insert(drivers).values(driverData).returning();
+    return result[0];
+  },
+
+  async getById(id: number): Promise<Driver | null> {
+    const result = await db.select().from(drivers).where(eq(drivers.id, id));
+    return result[0] || null;
+  },
+
+  async getByEmail(email: string): Promise<Driver | null> {
+    const result = await db.select().from(drivers).where(eq(drivers.email, email));
+    return result[0] || null;
+  },
+
+  async getByLicenseNumber(licenseNumber: string): Promise<Driver | null> {
+    const result = await db.select().from(drivers).where(eq(drivers.licenseNumber, licenseNumber));
+    return result[0] || null;
+  },
+
+  async getAll(): Promise<Driver[]> {
+    return await db.select().from(drivers);
+  },
+
+  async updateById(id: number, driverData: Partial<Driver>): Promise<Driver | null> {
+    driverData.updatedAt = new Date().toISOString();
+    const result = await db.update(drivers).set(driverData).where(eq(drivers.id, id)).returning();
+    return result[0] || null;
+  },
+
+  async deleteById(id: number): Promise<Driver | null> {
+    const result = await db.delete(drivers).where(eq(drivers.id, id)).returning();
+    return result[0] || null;
+  },
+
+  async assignVehicle(driverId: number, vehicleId: number): Promise<Driver | null> {
+    const result = await db.update(drivers)
+      .set({ vehicleId: vehicleId, updatedAt: new Date().toISOString() })
+      .where(eq(drivers.id, driverId))
+      .returning();
+    return result[0] || null;
+  },
+
+  async getWithVehicleAndSacco(driverId: number): Promise<any> {
+    // Get driver with their assigned vehicle and sacco details
+    const driver = await this.getById(driverId);
+    if (!driver) return null;
+
+    let vehicleDetails = null;
+    let saccoDetails = null;
+
+    if (driver.vehicleId) {
+      vehicleDetails = await vehicleService.getById(driver.vehicleId);
+      if (vehicleDetails && vehicleDetails.saccoId) {
+        saccoDetails = await saccoService.getById(vehicleDetails.saccoId);
+      }
+    }
+
+    return {
+      ...driver,
+      vehicle: vehicleDetails,
+      sacco: saccoDetails
+    };
   }
 }; 
