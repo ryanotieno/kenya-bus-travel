@@ -161,8 +161,10 @@ export default function DriverDashboard() {
     if (!user) return;
     
     try {
-      // Use the new API endpoint to get driver details with vehicle and route info
-      const response = await fetch(`/api/drivers?email=${encodeURIComponent(user.email)}`);
+      console.log("🔍 Fetching driver profile for:", user.email);
+      
+      // Use the new profile API endpoint to get complete driver data with relationships
+      const response = await fetch(`/api/drivers/profile?email=${encodeURIComponent(user.email)}`);
       const data = await response.json();
       
       if (!data.success || !data.driver) {
@@ -171,32 +173,50 @@ export default function DriverDashboard() {
         return;
       }
       
-      const driverInfo = data.driver;
-      setDriverData(driverInfo);
+      const driverProfile = data.driver;
+      setDriverData(driverProfile);
       
-      if (driverInfo.vehicle) {
-        setVehicleData(driverInfo.vehicle);
-        setVehicleCapacity(driverInfo.vehicle.capacity || 14);
+      console.log("✅ Driver profile loaded:", driverProfile);
+      
+      // Set vehicle data if assigned
+      if (driverProfile.vehicle) {
+        setVehicleData(driverProfile.vehicle);
+        setVehicleCapacity(driverProfile.vehicle.capacity || 14);
+        console.log("✅ Vehicle data set:", driverProfile.vehicle);
+      }
+      
+      // Set route data if available
+      if (driverProfile.route) {
+        const route = driverProfile.route;
+        console.log("✅ Route data found:", route);
         
-        if (driverInfo.route && driverInfo.route.busStops && driverInfo.route.busStops.length > 0) {
-          // Use bus stops from the route
-          const stops = driverInfo.route.busStops.map((stop: any, index: number) => ({
-            name: stop,
+        if (route.busStops && route.busStops.length > 0) {
+          // Use bus stops from the sacco route
+          const stops = route.busStops.map((stop: any, index: number) => ({
+            name: typeof stop === 'string' ? stop : stop.name || `Stop ${index + 1}`,
             distance: index * 2,
             dropOffCount: 0
           }));
           setRouteStops(stops);
-        } else if (driverInfo.route && driverInfo.route.name) {
-          // If no bus stops but route name is defined, create stops from route
-          const routeParts = driverInfo.route.name.split(' - ');
-          const stops = routeParts.map((stop: any, index: number) => ({
-            name: stop.trim(),
-            distance: index * 2,
-            dropOffCount: 0
-          }));
+          console.log("✅ Route stops set from busStops:", stops);
+        } else if (route.routeStart && route.routeEnd) {
+          // Create basic route from start and end points
+          const stops = [
+            {
+              name: route.routeStart,
+              distance: 0,
+              dropOffCount: 0
+            },
+            {
+              name: route.routeEnd,
+              distance: 10,
+              dropOffCount: 0
+            }
+          ];
           setRouteStops(stops);
+          console.log("✅ Route stops set from start/end:", stops);
         } else {
-          // Fallback stops if no route info
+          // Fallback stops if no detailed route info
           setRouteStops([
             { name: "Starting Point", distance: 0, dropOffCount: 0 },
             { name: "Route Point 1", distance: 5, dropOffCount: 0 },
@@ -676,7 +696,7 @@ export default function DriverDashboard() {
           </div>
           
           {/* Driver Info */}
-          {driverData && vehicleData && (
+          {driverData && (
             <div className="mt-4 p-4 bg-white rounded-lg border shadow-sm">
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div>
@@ -686,39 +706,96 @@ export default function DriverDashboard() {
                   </h3>
                   <p className="text-gray-600 font-medium">{driverData.firstName} {driverData.lastName}</p>
                   <p className="text-sm text-gray-500">{driverData.email}</p>
+                  <p className="text-xs text-gray-400">License: {driverData.licenseNumber}</p>
                 </div>
                 <div>
                   <h3 className="font-semibold text-gray-900 flex items-center gap-2">
                     <UsersRound className="h-4 w-4" />
                     Sacco
                   </h3>
-                  <p className="text-gray-600 font-medium">{driverData.sacco?.saccoName || 'No Sacco Assigned'}</p>
+                  <p className="text-gray-600 font-medium">
+                    {driverData.route?.saccoName || 'No Sacco Assigned'}
+                  </p>
+                  {driverData.route?.route && (
+                    <p className="text-xs text-gray-400">{driverData.route.route}</p>
+                  )}
                 </div>
                 <div>
                   <h3 className="font-semibold text-gray-900 flex items-center gap-2">
                     <Bus className="h-4 w-4" />
                     Vehicle
                   </h3>
-                  <p className="text-gray-600 font-medium">{vehicleData.name}</p>
-                  <p className="text-sm text-gray-500">{vehicleData.regNumber}</p>
+                  {driverData.vehicle ? (
+                    <>
+                      <p className="text-gray-600 font-medium">{driverData.vehicle.name}</p>
+                      <p className="text-sm text-gray-500">{driverData.vehicle.regNumber}</p>
+                      <p className="text-xs text-gray-400">Capacity: {driverData.vehicle.capacity} passengers</p>
+                    </>
+                  ) : (
+                    <p className="text-gray-500 italic">No vehicle assigned</p>
+                  )}
                 </div>
                 <div>
                   <h3 className="font-semibold text-gray-900 flex items-center gap-2">
                     <Navigation className="h-4 w-4" />
                     Route
                   </h3>
-                  <p className="text-gray-600 font-medium">
-                    {routeStops.length > 0 ? 
-                      `${routeStops[0].name} → ${routeStops[routeStops.length - 1].name}` : 
-                      'Route not defined'
-                    }
-                  </p>
-                  <p className="text-sm text-gray-500">{routeStops.length} stops</p>
+                  {driverData.route ? (
+                    <>
+                      <p className="text-gray-600 font-medium">
+                        {driverData.route.routeStart && driverData.route.routeEnd 
+                          ? `${driverData.route.routeStart} → ${driverData.route.routeEnd}`
+                          : routeStops.length > 0 
+                          ? `${routeStops[0].name} → ${routeStops[routeStops.length - 1].name}`
+                          : 'Route defined'}
+                      </p>
+                      <p className="text-sm text-gray-500">{routeStops.length} stops</p>
+                    </>
+                  ) : (
+                    <p className="text-gray-500 italic">No route assigned</p>
+                  )}
                 </div>
               </div>
             </div>
           )}
         </div>
+
+        {/* Vehicle Details */}
+        {driverData?.vehicle && (
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Bus className="h-5 w-5" />
+                Assigned Vehicle
+              </CardTitle>
+              <CardDescription>
+                Vehicle details and specifications
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="p-4 bg-blue-50 rounded-lg">
+                  <h4 className="font-semibold text-blue-900 mb-2">Vehicle Name</h4>
+                  <p className="text-blue-800 font-medium">{driverData.vehicle.name}</p>
+                </div>
+                <div className="p-4 bg-green-50 rounded-lg">
+                  <h4 className="font-semibold text-green-900 mb-2">Registration</h4>
+                  <p className="text-green-800 font-medium">{driverData.vehicle.regNumber}</p>
+                </div>
+                <div className="p-4 bg-purple-50 rounded-lg">
+                  <h4 className="font-semibold text-purple-900 mb-2">Capacity</h4>
+                  <p className="text-purple-800 font-medium">{driverData.vehicle.capacity} passengers</p>
+                </div>
+                <div className="p-4 bg-gray-50 rounded-lg">
+                  <h4 className="font-semibold text-gray-900 mb-2">Status</h4>
+                  <Badge variant={driverData.vehicle.status === 'active' ? 'default' : 'secondary'}>
+                    {driverData.vehicle.status}
+                  </Badge>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Route Details */}
         {routeStops.length > 0 && (
@@ -729,7 +806,12 @@ export default function DriverDashboard() {
                 Route Details
               </CardTitle>
               <CardDescription>
-                Complete route for {driverData?.sacco?.saccoName || 'Unknown Sacco'} - {routeStops.length} stops
+                Complete route for {driverData?.route?.saccoName || 'Unknown Sacco'} - {routeStops.length} stops
+                {driverData?.route?.route && (
+                  <span className="block text-sm text-blue-600 mt-1">
+                    {driverData.route.route}
+                  </span>
+                )}
               </CardDescription>
             </CardHeader>
             <CardContent>
