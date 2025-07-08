@@ -16,6 +16,18 @@ export default function DriverDashboard() {
   const router = useRouter();
   const { user, loading: authLoading, error: authError } = useAuth();
   const [loading, setLoading] = useState(true);
+
+  // Don't render anything while auth is loading or if user is not authenticated
+  if (authLoading) {
+    return <div className="flex items-center justify-center min-h-screen">
+      <div className="text-lg">Loading...</div>
+    </div>;
+  }
+
+  // Redirect if not authenticated or not a driver
+  if (!user || user.role !== 'driver') {
+    return null; // Don't render anything while redirecting
+  }
   const [tripStatus, setTripStatus] = useState("idle"); // idle, boarding, enRoute, completed
   const [currentStop, setCurrentStop] = useState(0);
   const [passengers, setPassengers] = useState(0);
