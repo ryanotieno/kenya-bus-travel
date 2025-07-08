@@ -24,6 +24,7 @@ export const drivers = pgTable('drivers', {
   password: text('password').notNull(),
   licenseNumber: text('license_number').notNull().unique(),
   licenseExpiry: timestamp('license_expires'),
+  vehicleId: integer('vehicle_id').references(() => vehicles.id), // Driver assigned to specific vehicle
   status: text('status', { enum: ['active', 'inactive', 'suspended'] }).default('active'),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),

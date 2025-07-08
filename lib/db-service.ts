@@ -433,45 +433,44 @@ export const driverService = {
     return result[0] || null;
   },
 
-  async getCurrentAssignment(driverId: number): Promise<any> {
-    // Get driver's current active trip and associated vehicle/route info
+  async assignVehicle(driverId: number, vehicleId: number): Promise<Driver | null> {
+    const result = await db.update(drivers)
+      .set({ vehicleId: vehicleId, updatedAt: new Date() })
+      .where(eq(drivers.id, driverId))
+      .returning();
+    return result[0] || null;
+  },
+
+  async getWithVehicleAndSacco(driverId: number): Promise<any> {
+    // Get driver with their assigned vehicle and sacco details
     const driver = await this.getById(driverId);
     if (!driver) return null;
-
-    // Find active trip for this driver
-    const activeTrips = await db.select()
-      .from(trips)
-      .where(and(
-        eq(trips.driverId, driverId),
-        eq(trips.status, 'in_progress')
-      ))
-      .limit(1);
 
     let vehicleDetails = null;
     let saccoDetails = null;
     let routeDetails = null;
 
-    if (activeTrips.length > 0) {
-      const trip = activeTrips[0];
+    // Get vehicle details from driver's assigned vehicle
+    if (driver.vehicleId) {
+      vehicleDetails = await vehicleService.getById(driver.vehicleId);
       
-      // Get vehicle details
-      if (trip.vehicleId) {
-        vehicleDetails = await vehicleService.getById(trip.vehicleId);
+      if (vehicleDetails && vehicleDetails.saccoId) {
+        saccoDetails = await saccoService.getById(vehicleDetails.saccoId);
         
-        if (vehicleDetails && vehicleDetails.saccoId) {
-          saccoDetails = await saccoService.getById(vehicleDetails.saccoId);
+        // Get route details from the sacco (using the sacco's route info)
+        if (saccoDetails) {
+          routeDetails = {
+            name: saccoDetails.route || `${saccoDetails.routeStart} - ${saccoDetails.routeEnd}`,
+            startLocation: saccoDetails.routeStart,
+            endLocation: saccoDetails.routeEnd,
+            busStops: saccoDetails.busStops
+          };
         }
-      }
-      
-      // Get route details
-      if (trip.routeId) {
-        routeDetails = await routeService.getById(trip.routeId);
       }
     }
 
     return {
       ...driver,
-      currentTrip: activeTrips[0] || null,
       vehicle: vehicleDetails,
       sacco: saccoDetails,
       route: routeDetails
@@ -479,34 +478,56 @@ export const driverService = {
   },
 
   async getDriverRouteInfo(driverId: number): Promise<any> {
-    // Get route information for driver dashboard
-    const assignment = await this.getCurrentAssignment(driverId);
-    if (!assignment || !assignment.route) {
+    // Get route information for driver dashboard based on assigned vehicle
+    const assignment = await this.getWithVehicleAndSacco(driverId);
+    if (!assignment) {
       return {
-        driver: assignment?.driver || await this.getById(driverId),
-        hasActiveRoute: false,
-        message: "No active route assignment"
+        hasAssignment: false,
+        message: "Driver not found"
+      };
+    }
+
+    if (!assignment.vehicle) {
+      return {
+        driver: assignment,
+        hasAssignment: false,
+        message: "No vehicle assigned to driver"
+      };
+    }
+
+    if (!assignment.sacco) {
+      return {
+        driver: assignment,
+        vehicle: assignment.vehicle,
+        hasAssignment: false,
+        message: "Vehicle not assigned to any sacco"
       };
     }
 
     return {
-      driver: assignment.driver,
-      hasActiveRoute: true,
-      route: {
-        name: assignment.route.name,
-        startLocation: assignment.route.startLocation,
-        endLocation: assignment.route.endLocation,
-        distance: assignment.route.distance,
-        estimatedTime: assignment.route.estimatedTime,
-        fare: assignment.route.fare
+      driver: {
+        id: assignment.id,
+        firstName: assignment.firstName,
+        lastName: assignment.lastName,
+        email: assignment.email,
+        licenseNumber: assignment.licenseNumber,
+        status: assignment.status
       },
+      hasAssignment: true,
       vehicle: {
+        id: assignment.vehicle.id,
         name: assignment.vehicle.name,
         regNumber: assignment.vehicle.regNumber,
-        capacity: assignment.vehicle.capacity
+        capacity: assignment.vehicle.capacity,
+        status: assignment.vehicle.status
       },
       sacco: {
-        name: assignment.sacco.saccoName
+        id: assignment.sacco.id,
+        name: assignment.sacco.saccoName,
+        route: assignment.route?.name || assignment.sacco.route,
+        routeStart: assignment.route?.startLocation || assignment.sacco.routeStart,
+        routeEnd: assignment.route?.endLocation || assignment.sacco.routeEnd,
+        busStops: assignment.route?.busStops || assignment.sacco.busStops
       }
     };
   }
