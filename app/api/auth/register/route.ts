@@ -139,15 +139,34 @@ export async function POST(request: NextRequest) {
 
       // Handle vehicle assignment if provided
       if (additionalData.vehicle) {
+        console.log("🔍 Attempting to assign vehicle:", additionalData.vehicle)
         try {
           const vehicle = await vehicleService.getByRegNumber(additionalData.vehicle)
+          console.log("🔍 Vehicle lookup result:", vehicle)
+          
           if (vehicle) {
-            await vehicleService.updateDriver(vehicle.id, newDriver.id)
-            console.log("✅ Vehicle assigned to driver:", additionalData.vehicle)
+            console.log("🔍 Assigning vehicle ID", vehicle.id, "to driver ID", newDriver.id)
+            const assignmentResult = await vehicleService.updateDriver(vehicle.id, newDriver.id)
+            console.log("🔍 Vehicle assignment result:", assignmentResult)
+            
+            // Verify the assignment worked
+            const updatedDriver = await driverService.getById(newDriver.id)
+            console.log("🔍 Driver after vehicle assignment:", updatedDriver)
+            
+            if (updatedDriver && updatedDriver.vehicleId) {
+              console.log("✅ Vehicle successfully assigned to driver:", additionalData.vehicle)
+            } else {
+              console.log("❌ Vehicle assignment failed - vehicle_id is still NULL")
+            }
+          } else {
+            console.log("❌ Vehicle not found with registration number:", additionalData.vehicle)
           }
         } catch (vehicleError) {
-          console.log("⚠️ Could not assign vehicle:", vehicleError)
+          console.log("❌ Vehicle assignment error:", vehicleError)
+          console.error("❌ Full vehicle assignment error:", vehicleError)
         }
+      } else {
+        console.log("⚠️ No vehicle provided in registration data")
       }
 
       console.log("✅ Driver registration successful for:", email)
