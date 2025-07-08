@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { db } from "@/lib/db"
-import { saccos } from "@/lib/schema"
+import { saccos, vehicles } from "@/lib/schema"
 import { eq } from "drizzle-orm"
 
 export async function GET(request: Request) {
@@ -25,6 +25,25 @@ export async function GET(request: Request) {
 
     console.log(`✅ Found ${userSaccos.length} saccos for ${ownerName}:`, userSaccos)
 
+    // Get all vehicles to calculate vehicle counts for each sacco
+    const allVehicles = await db.select().from(vehicles)
+    
+    // Transform saccos to include vehicle information
+    const saccosWithVehicles = userSaccos.map((sacco: any) => {
+      const saccoVehicles = allVehicles.filter((vehicle: any) => vehicle.saccoId === sacco.id)
+      
+      return {
+        ...sacco,
+        vehicles: saccoVehicles.map((vehicle: any) => ({
+          id: vehicle.id,
+          name: vehicle.name,
+          regNumber: vehicle.regNumber,
+          capacity: vehicle.capacity,
+          status: vehicle.status
+        }))
+      }
+    })
+
     return NextResponse.json({
       success: true,
       message: userSaccos.length > 0 
@@ -32,7 +51,7 @@ export async function GET(request: Request) {
         : `No saccos found for ${ownerName}. You may need to register saccos first.`,
       data: {
         ownerName,
-        saccos: userSaccos,
+        saccos: saccosWithVehicles,
         count: userSaccos.length
       }
     })

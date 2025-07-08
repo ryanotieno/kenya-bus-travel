@@ -196,6 +196,11 @@ export const vehicleService = {
 
   async getAvailableVehicles(): Promise<Vehicle[]> {
     return await db.select().from(vehicles).where(eq(vehicles.status, 'active'));
+  },
+
+  async deleteById(id: number): Promise<Vehicle | null> {
+    const result = await db.delete(vehicles).where(eq(vehicles.id, id)).returning();
+    return result[0] || null;
   }
 };
 

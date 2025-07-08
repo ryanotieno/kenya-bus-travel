@@ -276,6 +276,8 @@ export default function OwnerDashboard() {
         setVehicleForm({ name: '', regNumber: '', capacity: 30 });
         // Refresh vehicles list
         fetchVehicles(selectedSacco.id);
+        // Refresh sidebar saccos to update vehicle counts
+        await fetchSidebarSaccos();
         alert('Vehicle added successfully!');
       } else {
         alert(result.error || 'Failed to add vehicle');
@@ -286,8 +288,26 @@ export default function OwnerDashboard() {
   };
   const handleDeleteVehicle = async (id: number) => {
     if (!selectedSacco) return;
-    // Implement DELETE endpoint if needed. For now, just remove from UI.
-    setVehicles(vehicles.filter(v => v.id !== id));
+    
+    try {
+      const response = await fetch(`/api/vehicles?id=${id}`, {
+        method: 'DELETE',
+      });
+
+      const result = await response.json();
+      
+      if (result.success) {
+        // Remove from UI
+        setVehicles(vehicles.filter(v => v.id !== id));
+        // Refresh sidebar saccos to update vehicle counts
+        await fetchSidebarSaccos();
+        alert('Vehicle deleted successfully!');
+      } else {
+        alert(result.error || 'Failed to delete vehicle');
+      }
+    } catch (error) {
+      alert('Error deleting vehicle');
+    }
   };
   const handleEditVehicle = (id: number) => {
     const v = vehicles.find((v: any) => v.id === id);

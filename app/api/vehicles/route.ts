@@ -60,3 +60,32 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: false, error: errorMessage || "Failed to add vehicle" }, { status: 500 })
   }
 }
+
+export async function DELETE(request: NextRequest) {
+  console.log('🚀 DELETE /api/vehicles called');
+  try {
+    const { searchParams } = new URL(request.url)
+    const vehicleId = searchParams.get('id')
+    
+    if (!vehicleId) {
+      console.log('❌ Missing vehicle ID');
+      return NextResponse.json({ success: false, error: "Vehicle ID is required" }, { status: 400 })
+    }
+    
+    console.log('📥 Deleting vehicle with ID:', vehicleId);
+    
+    const deletedVehicle = await vehicleService.deleteById(Number(vehicleId))
+    
+    if (deletedVehicle) {
+      console.log('✅ Vehicle deleted successfully:', deletedVehicle);
+      return NextResponse.json({ success: true, message: "Vehicle deleted successfully" })
+    } else {
+      console.log('❌ Vehicle not found');
+      return NextResponse.json({ success: false, error: "Vehicle not found" }, { status: 404 })
+    }
+  } catch (error) {
+    console.error("❌ Error deleting vehicle:", error)
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    return NextResponse.json({ success: false, error: errorMessage || "Failed to delete vehicle" }, { status: 500 })
+  }
+}
