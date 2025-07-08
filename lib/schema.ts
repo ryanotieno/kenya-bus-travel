@@ -25,7 +25,6 @@ export const drivers = pgTable('drivers', {
   licenseNumber: text('license_number').notNull().unique(),
   licenseExpiry: timestamp('license_expires'),
   vehicleId: integer('vehicle_id'), // Will reference vehicles.id
-  saccoId: integer('sacco_id'), // Will reference saccos.id
   status: text('status', { enum: ['active', 'inactive', 'suspended'] }).default('active'),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
