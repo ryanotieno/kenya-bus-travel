@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { userService, ownerService, companyService, saccoService, vehicleService, routeService } from "@/lib/db-service"
+import { userService, ownerService, companyService, saccoService, vehicleService, routeService, driverService } from "@/lib/db-service"
 import { db } from "@/lib/database"
 
 export async function POST(request: NextRequest) {
@@ -99,9 +99,73 @@ export async function POST(request: NextRequest) {
           details: ownerError instanceof Error ? ownerError.message : "Unknown error"
         }, { status: 500 })
       }
+    } else if (role === "driver") {
+      // For drivers, create in drivers table
+      console.log("🚗 Driver registration - creating driver...")
+      
+      // Check if driver already exists
+      const existingDriver = await driverService.getByEmail(email)
+      if (existingDriver) {
+        console.log("❌ Driver already exists:", email)
+        return NextResponse.json({ error: "Driver with this email already exists." }, { status: 400 })
+      }
+
+      // Check if license number already exists (if provided)
+      if (additionalData.license) {
+        const existingLicense = await driverService.getByLicenseNumber(additionalData.license)
+        if (existingLicense) {
+          console.log("❌ License number already exists:", additionalData.license)
+          return NextResponse.json({ error: "Driver with this license number already exists." }, { status: 400 })
+        }
+      }
+
+      console.log("✅ Creating driver in database...")
+      
+      // Create driver in database
+      const newDriver = await driverService.create({
+        firstName,
+        lastName,
+        email,
+        phone,
+        password, // In a real app, this should be hashed
+        licenseNumber: additionalData.license || `TEMP_${Date.now()}`, // Temporary if not provided
+        licenseExpiry: additionalData.licenseExpiry ? new Date(additionalData.licenseExpiry) : null,
+        status: 'active',
+        createdAt: new Date(),
+        updatedAt: new Date()
+      })
+
+      console.log("✅ Driver created:", { id: newDriver.id, email: newDriver.email })
+
+      // Handle vehicle assignment if provided
+      if (additionalData.vehicle) {
+        try {
+          const vehicle = await vehicleService.getByRegNumber(additionalData.vehicle)
+          if (vehicle) {
+            await vehicleService.updateDriver(vehicle.id, newDriver.id)
+            console.log("✅ Vehicle assigned to driver:", additionalData.vehicle)
+          }
+        } catch (vehicleError) {
+          console.log("⚠️ Could not assign vehicle:", vehicleError)
+        }
+      }
+
+      console.log("✅ Driver registration successful for:", email)
+
+      return NextResponse.json({ 
+        success: true, 
+        message: "Driver registration successful",
+        driver: {
+          id: newDriver.id,
+          firstName: newDriver.firstName,
+          lastName: newDriver.lastName,
+          email: newDriver.email,
+          licenseNumber: newDriver.licenseNumber
+        }
+      })
     } else {
-      // For users and drivers, create in users table
-      console.log("👤 User/Driver registration - creating user...")
+      // For regular users, create in users table
+      console.log("👤 User registration - creating user...")
       
       // Check if user already exists
       const existingUser = await userService.getByEmail(email)
@@ -123,13 +187,6 @@ export async function POST(request: NextRequest) {
       })
 
       console.log("✅ User created:", { id: newUser.id, email: newUser.email, role: newUser.role })
-
-      // Handle role-specific data for drivers
-      if (role === "driver") {
-        // For drivers, we need to associate them with an existing sacco
-        // This would typically be done by an admin or through a different flow
-        console.log("🚗 Driver registration - would need sacco assignment logic")
-      }
 
       console.log("✅ User registration successful for:", email)
 
