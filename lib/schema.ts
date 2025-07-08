@@ -24,7 +24,6 @@ export const drivers = pgTable('drivers', {
   password: text('password').notNull(),
   licenseNumber: text('license_number').notNull().unique(),
   licenseExpiry: timestamp('license_expires'),
-  vehicleId: integer('vehicle_id'), // Will reference vehicles.id
   status: text('status', { enum: ['active', 'inactive', 'suspended'] }).default('active'),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
@@ -75,7 +74,6 @@ export const vehicles = pgTable('vehicles', {
   regNumber: text('reg_number').notNull().unique(),
   capacity: integer('capacity').notNull(),
   saccoId: integer('sacco_id').references(() => saccos.id),
-  driverId: integer('driver_id').references(() => drivers.id), // Now references drivers table
   status: text('status', { enum: ['active', 'maintenance', 'inactive'] }).default('active'),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
