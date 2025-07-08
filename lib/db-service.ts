@@ -206,11 +206,11 @@ export const vehicleService = {
   },
 
   async updateDriver(vehicleId: number, driverId: number): Promise<Vehicle | null> {
-    // For now, we'll update the user's vehicleId instead of adding a driverId to vehicles
-    // This follows the schema where users.vehicleId references vehicles.id
-    const result = await db.update(users)
+    // Fix: Update the drivers table instead of users table
+    // since we now have a separate drivers table
+    const result = await db.update(drivers)
       .set({ vehicleId: vehicleId, updatedAt: new Date() })
-      .where(eq(users.id, driverId))
+      .where(eq(drivers.id, driverId))
       .returning();
     
     if (result[0]) {
