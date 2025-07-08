@@ -149,71 +149,49 @@ export default function DriverDashboard() {
     if (!user) return;
     
     try {
-      const driversResponse = await fetch('/api/drivers');
-      const drivers = await driversResponse.json();
+      // Use the new API endpoint to get driver details with vehicle and route info
+      const response = await fetch(`/api/drivers?email=${encodeURIComponent(user.email)}`);
+      const data = await response.json();
       
-      // Find the current driver by their email from the session
-      const currentDriver = drivers.find((d: any) => d.email === user.email);
-      
-      if (!currentDriver) {
+      if (!data.success || !data.driver) {
         console.error('Driver not found for email:', user.email);
         setLoading(false);
         return;
       }
       
-      setDriverData(currentDriver);
+      const driverInfo = data.driver;
+      setDriverData(driverInfo);
       
-      // Fetch companies for vehicle and route data
-      const companiesResponse = await fetch('/api/companies');
-      const companies = await companiesResponse.json();
-      
-      let saccoFound = false;
-      let driverVehicle = null;
-      
-      for (const company of companies) {
-        for (const sacco of company.saccos) {
-          // Check if any vehicle in this sacco is assigned to the current driver
-          if (sacco.vehicles && sacco.vehicles.length > 0) {
-            driverVehicle = sacco.vehicles.find((v: any) => v.driverId === currentDriver.id);
-            
-            if (driverVehicle) {
-              saccoFound = true;
-              setVehicleData(driverVehicle);
-              setVehicleCapacity(driverVehicle.capacity || 14);
-              
-              // Set route stops with drop-off counts
-              if (sacco.busStops && sacco.busStops.length > 0) {
-                const stops = sacco.busStops.map((stop: any, index: number) => ({
-                  name: stop,
-                  distance: index * 2,
-                  dropOffCount: 0
-                }));
-                setRouteStops(stops);
-              } else if (sacco.route) {
-                // If no bus stops but route is defined, create stops from route
-                const routeParts = sacco.route.split(' - ');
-                const stops = routeParts.map((stop: any, index: number) => ({
-                  name: stop.trim(),
-                  distance: index * 2,
-                  dropOffCount: 0
-                }));
-                setRouteStops(stops);
-              } else {
-                // Fallback stops if no route info
-                setRouteStops([
-                  { name: "Starting Point", distance: 0, dropOffCount: 0 },
-                  { name: "Route Point 1", distance: 5, dropOffCount: 0 },
-                  { name: "Route Point 2", distance: 10, dropOffCount: 0 },
-                ]);
-              }
-              break;
-            }
-          }
+      if (driverInfo.vehicle) {
+        setVehicleData(driverInfo.vehicle);
+        setVehicleCapacity(driverInfo.vehicle.capacity || 14);
+        
+        if (driverInfo.route && driverInfo.route.busStops && driverInfo.route.busStops.length > 0) {
+          // Use bus stops from the route
+          const stops = driverInfo.route.busStops.map((stop: any, index: number) => ({
+            name: stop,
+            distance: index * 2,
+            dropOffCount: 0
+          }));
+          setRouteStops(stops);
+        } else if (driverInfo.route && driverInfo.route.name) {
+          // If no bus stops but route name is defined, create stops from route
+          const routeParts = driverInfo.route.name.split(' - ');
+          const stops = routeParts.map((stop: any, index: number) => ({
+            name: stop.trim(),
+            distance: index * 2,
+            dropOffCount: 0
+          }));
+          setRouteStops(stops);
+        } else {
+          // Fallback stops if no route info
+          setRouteStops([
+            { name: "Starting Point", distance: 0, dropOffCount: 0 },
+            { name: "Route Point 1", distance: 5, dropOffCount: 0 },
+            { name: "Route Point 2", distance: 10, dropOffCount: 0 },
+          ]);
         }
-        if (saccoFound) break;
-      }
-      
-      if (!saccoFound) {
+      } else {
         console.error('No vehicle assigned to driver:', user.email);
         // Set default vehicle data for display
         setVehicleData({
@@ -702,7 +680,7 @@ export default function DriverDashboard() {
                     <UsersRound className="h-4 w-4" />
                     Sacco
                   </h3>
-                  <p className="text-gray-600 font-medium">{driverData.sacco}</p>
+                  <p className="text-gray-600 font-medium">{driverData.sacco?.saccoName || 'No Sacco Assigned'}</p>
                 </div>
                 <div>
                   <h3 className="font-semibold text-gray-900 flex items-center gap-2">
@@ -739,7 +717,7 @@ export default function DriverDashboard() {
                 Route Details
               </CardTitle>
               <CardDescription>
-                Complete route for {driverData?.sacco} - {routeStops.length} stops
+                Complete route for {driverData?.sacco?.saccoName || 'Unknown Sacco'} - {routeStops.length} stops
               </CardDescription>
             </CardHeader>
             <CardContent>

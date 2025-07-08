@@ -201,6 +201,30 @@ export const vehicleService = {
   async deleteById(id: number): Promise<Vehicle | null> {
     const result = await db.delete(vehicles).where(eq(vehicles.id, id)).returning();
     return result[0] || null;
+  },
+
+  async updateDriver(vehicleId: number, driverId: number): Promise<Vehicle | null> {
+    // For now, we'll update the user's vehicleId instead of adding a driverId to vehicles
+    // This follows the schema where users.vehicleId references vehicles.id
+    const result = await db.update(users)
+      .set({ vehicleId: vehicleId, updatedAt: new Date() })
+      .where(eq(users.id, driverId))
+      .returning();
+    
+    if (result[0]) {
+      // Return the vehicle for consistency
+      return await this.getById(vehicleId);
+    }
+    return null;
+  },
+
+  async getByDriverId(driverId: number): Promise<Vehicle | null> {
+    // Get the user first to find their assigned vehicle
+    const user = await userService.getById(driverId);
+    if (user && user.vehicleId) {
+      return await this.getById(user.vehicleId);
+    }
+    return null;
   }
 };
 

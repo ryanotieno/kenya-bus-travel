@@ -1,14 +1,57 @@
 import { NextRequest, NextResponse } from "next/server"
 import { userService, vehicleService, saccoService } from "@/lib/db-service"
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const drivers = await userService.getAll()
-    // Only return users with role 'driver'
-    const driverList = drivers.filter((u) => u.role === 'driver')
-    return NextResponse.json(driverList)
+    const { searchParams } = new URL(request.url)
+    const driverEmail = searchParams.get('email')
+    
+    if (driverEmail) {
+      // Get specific driver with their vehicle and route information
+      const driver = await userService.getByEmail(driverEmail)
+      if (!driver || driver.role !== 'driver') {
+        return NextResponse.json({ success: false, error: "Driver not found" }, { status: 404 })
+      }
+
+      let driverDetails: any = {
+        ...driver,
+        vehicle: null,
+        sacco: null,
+        route: null
+      }
+
+      // Get the driver's assigned vehicle
+      if (driver.vehicleId) {
+        const vehicle = await vehicleService.getById(driver.vehicleId)
+        if (vehicle) {
+          driverDetails.vehicle = vehicle
+          
+          // Get the sacco for this vehicle
+          if (vehicle.saccoId) {
+            const sacco = await saccoService.getById(vehicle.saccoId)
+            if (sacco) {
+              driverDetails.sacco = sacco
+              driverDetails.route = {
+                name: sacco.route || `${sacco.routeStart || ''} - ${sacco.routeEnd || ''}`,
+                startLocation: sacco.routeStart,
+                endLocation: sacco.routeEnd,
+                busStops: sacco.busStops ? JSON.parse(sacco.busStops) : []
+              }
+            }
+          }
+        }
+      }
+
+      return NextResponse.json({ success: true, driver: driverDetails })
+    } else {
+      // Return all drivers (existing functionality)
+      const drivers = await userService.getAll()
+      const driverList = drivers.filter((u) => u.role === 'driver')
+      return NextResponse.json(driverList)
+    }
   } catch (err) {
-    return NextResponse.json([], { status: 200 })
+    console.error('Error fetching driver data:', err)
+    return NextResponse.json({ success: false, error: "Failed to fetch driver data" }, { status: 500 })
   }
 }
 
