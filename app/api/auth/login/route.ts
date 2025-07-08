@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createSession } from "@/lib/auth"
-import { userService, ownerService } from "@/lib/db-service"
+import { userService, ownerService, driverService } from "@/lib/db-service"
 
 export async function POST(request: NextRequest) {
   try {
@@ -15,9 +15,30 @@ export async function POST(request: NextRequest) {
 
 
 
-    // Check credentials against the database - try users table first, then owners table
+    // Check credentials against the database - try users table first, then drivers table, then owners table
     let user = await userService.getByEmail(email)
     let isOwner = false
+    let isDriver = false
+    
+    if (!user) {
+      // Check drivers table
+      const driver = await driverService.getByEmail(email)
+      if (driver) {
+        isDriver = true
+        // Convert driver to user format for session
+        user = {
+          id: driver.id,
+          firstName: driver.firstName,
+          lastName: driver.lastName,
+          email: driver.email,
+          phone: driver.phone,
+          password: driver.password,
+          role: 'driver' as any,
+          createdAt: driver.createdAt,
+          updatedAt: driver.updatedAt
+        }
+      }
+    }
     
     if (!user) {
       // Check owners table
@@ -32,14 +53,14 @@ export async function POST(request: NextRequest) {
           email: owner.email,
           phone: owner.phone,
           password: owner.password,
-          role: 'owner' as const,
+          role: 'owner' as any,
           createdAt: owner.createdAt,
           updatedAt: owner.updatedAt
         }
       }
     }
     
-    console.log(`👤 User lookup result:`, user ? `Found ${isOwner ? 'owner' : 'user'} ${user.email} (${user.role})` : "User not found")
+    console.log(`👤 User lookup result:`, user ? `Found ${isOwner ? 'owner' : isDriver ? 'driver' : 'user'} ${user.email} (${user.role})` : "User not found")
 
     if (!user) {
       console.log("❌ User not found in database")
@@ -60,7 +81,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid credentials" }, { status: 401 })
     }
 
-    console.log(`✅ Creating session for ${isOwner ? 'owner' : 'user'} ${user.email} (${user.role})`)
+    console.log(`✅ Creating session for ${isOwner ? 'owner' : isDriver ? 'driver' : 'user'} ${user.email} (${user.role})`)
     
     const userAgent = request.headers.get("user-agent") || "unknown"
     const ipAddress = request.headers.get("x-forwarded-for") || "unknown"
