@@ -14,7 +14,19 @@ export async function middleware(request: NextRequest) {
   console.log(`🍪 Session cookie: ${session ? 'Present' : 'Missing'}`)
 
   // Public routes that don't require authentication
-  const publicRoutes = ["/", "/login", "/register", "/api/auth/login", "/api/auth/register", "/api/auth/session", "/api/test", "/api/test-vehicle"]
+  const publicRoutes = [
+    "/", 
+    "/login", 
+    "/register", 
+    "/api/auth/login", 
+    "/api/auth/register", 
+    "/api/auth/session", 
+    "/api/test", 
+    "/api/test-vehicle",
+    "/api/drivers/register",
+    "/api/vehicles",
+    "/drivers/register"
+  ]
   const isPublicRoute = publicRoutes.some(route => url === route || url.startsWith(route + "/"))
 
   // If it's a public route, allow access
@@ -40,28 +52,32 @@ export async function middleware(request: NextRequest) {
 
     console.log(`🔐 Session verified for ${userEmail} (${userRole}) accessing ${url}`)
 
-    // Check if the user is accessing the correct role-based routes
+    // STRICT role-based routing - drivers can ONLY access driver routes
     if (userRole === "driver") {
-      // Drivers can only access driver routes
+      // Drivers can ONLY access driver routes or driver API endpoints
       if (!url.startsWith("/driver") && !url.startsWith("/api/drivers")) {
-        console.log(`🚫 Driver ${userEmail} trying to access non-driver route: ${url}`)
+        console.log(`🚫 Driver ${userEmail} redirected from ${url} to driver dashboard`)
         return NextResponse.redirect(new URL("/driver/dashboard", request.url))
       }
-    } else if (userRole === "user") {
-      // Regular users can only access user routes
-      if (!url.startsWith("/user") && !url.startsWith("/api/")) {
-        console.log(`🚫 User ${userEmail} trying to access non-user route: ${url}`)
-        return NextResponse.redirect(new URL("/user/dashboard", request.url))
-      }
     } else if (userRole === "owner") {
-      // Owners can only access owner routes
-      if (!url.startsWith("/owner") && !url.startsWith("/api/")) {
-        console.log(`🚫 Owner ${userEmail} trying to access non-owner route: ${url}`)
+      // Owners can ONLY access owner routes or general API endpoints
+      if (!url.startsWith("/owner") && !url.startsWith("/api/owners") && !url.startsWith("/api/")) {
+        console.log(`🚫 Owner ${userEmail} redirected from ${url} to owner dashboard`)
         return NextResponse.redirect(new URL("/owner/dashboard", request.url))
       }
+    } else if (userRole === "user") {
+      // Regular users can ONLY access user routes or general API endpoints
+      if (!url.startsWith("/user") && !url.startsWith("/api/")) {
+        console.log(`🚫 User ${userEmail} redirected from ${url} to user dashboard`)
+        return NextResponse.redirect(new URL("/user/dashboard", request.url))
+      }
+    } else {
+      // Unknown role, redirect to login
+      console.log(`🚫 Unknown role ${userRole} for ${userEmail}, redirecting to login`)
+      return NextResponse.redirect(new URL("/login", request.url))
     }
 
-    console.log(`✅ Access granted to ${userEmail} for ${url}`)
+    console.log(`✅ Access granted to ${userEmail} (${userRole}) for ${url}`)
     return NextResponse.next()
   } catch (error) {
     // Invalid session, redirect to login
@@ -75,16 +91,13 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    // Protect all dashboard routes
-    "/user/:path*",
-    "/driver/:path*", 
-    "/owner/:path*",
-    // Protect specific API routes that need authentication
-    "/api/drivers/:path*",
-    "/api/companies/:path*",
-    // "/api/vehicles/:path*", // Temporarily disabled for testing
-    "/api/routes/:path*",
-    "/api/trips/:path*",
-    "/api/tickets/:path*",
+    /*
+     * Match all request paths except for the ones starting with:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - public (public files)
+     */
+    '/((?!_next/static|_next/image|favicon.ico|public).*)',
   ],
 }

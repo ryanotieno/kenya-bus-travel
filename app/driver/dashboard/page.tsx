@@ -72,9 +72,12 @@ export default function DriverDashboard() {
         const response = await fetch('/api/drivers/profile')
         if (response.ok) {
           const data = await response.json()
+          console.log("✅ Driver profile loaded:", data)
           setDriverProfile(data)
         } else {
-          console.error('Failed to fetch driver profile')
+          console.error('Failed to fetch driver profile:', response.status)
+          const errorData = await response.json()
+          console.error('Error details:', errorData)
         }
       } catch (error) {
         console.error('Error fetching driver profile:', error)

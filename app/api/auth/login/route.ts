@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createSession } from "@/lib/auth"
 import { userService, ownerService, driverService } from "@/lib/db-service"
+import type { UserRole } from "@/lib/auth"
 
 export async function POST(request: NextRequest) {
   try {
@@ -13,38 +14,33 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Email and password are required" }, { status: 400 })
     }
 
-
-
-    // Check credentials against the database - try users table first, then drivers table, then owners table
-    let user = await userService.getByEmail(email)
-    let isOwner = false
-    let isDriver = false
+    // Check credentials against the database - try drivers table FIRST for drivers
+    let user = null
+    let userRole: UserRole | null = null
     
-    if (!user) {
-      // Check drivers table
-      const driver = await driverService.getByEmail(email)
-      if (driver) {
-        isDriver = true
-        // Convert driver to user format for session
-        user = {
-          id: driver.id,
-          firstName: driver.firstName,
-          lastName: driver.lastName,
-          email: driver.email,
-          phone: driver.phone,
-          password: driver.password,
-          role: 'driver' as any,
-          createdAt: driver.createdAt,
-          updatedAt: driver.updatedAt
-        }
+    // First check drivers table
+    const driver = await driverService.getByEmail(email)
+    if (driver) {
+      // Convert driver to user format for session
+      user = {
+        id: driver.id,
+        firstName: driver.firstName,
+        lastName: driver.lastName,
+        email: driver.email,
+        phone: driver.phone,
+        password: driver.password,
+        role: 'driver' as any,
+        createdAt: driver.createdAt,
+        updatedAt: driver.updatedAt
       }
+      userRole = 'driver'
+      console.log(`👤 Found driver: ${driver.email}`)
     }
     
     if (!user) {
       // Check owners table
       const owner = await ownerService.getByEmail(email)
       if (owner) {
-        isOwner = true
         // Convert owner to user format for session
         user = {
           id: owner.id,
@@ -57,22 +53,27 @@ export async function POST(request: NextRequest) {
           createdAt: owner.createdAt,
           updatedAt: owner.updatedAt
         }
+        userRole = 'owner'
+        console.log(`👤 Found owner: ${owner.email}`)
       }
     }
     
-    console.log(`👤 User lookup result:`, user ? `Found ${isOwner ? 'owner' : isDriver ? 'driver' : 'user'} ${user.email} (${user.role})` : "User not found")
-
     if (!user) {
-      console.log("❌ User not found in database")
+      // Check users table last
+      const regularUser = await userService.getByEmail(email)
+      if (regularUser) {
+        user = regularUser
+        userRole = 'user'
+        console.log(`👤 Found regular user: ${regularUser.email}`)
+      }
+    }
+    
+    console.log(`👤 User lookup result:`, user ? `Found ${userRole} ${user.email}` : "User not found")
+
+    if (!user || !userRole) {
+      console.log("❌ User not found in any table")
       return NextResponse.json({ error: "Invalid credentials" }, { status: 401 })
     }
-
-    // In a real app, you would verify the password hash
-    // For demo purposes, we're accepting the password as is
-    // const passwordMatch = await bcrypt.compare(password, user.password);
-    // if (!passwordMatch) {
-    //   return NextResponse.json({ error: "Invalid credentials" }, { status: 401 })
-    // }
 
     console.log(`🔑 Password check: provided="${password}", stored="${user.password}"`)
     
@@ -81,7 +82,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid credentials" }, { status: 401 })
     }
 
-    console.log(`✅ Creating session for ${isOwner ? 'owner' : isDriver ? 'driver' : 'user'} ${user.email} (${user.role})`)
+    console.log(`✅ Creating session for ${userRole} ${user.email}`)
     
     const userAgent = request.headers.get("user-agent") || "unknown"
     const ipAddress = request.headers.get("x-forwarded-for") || "unknown"
@@ -90,11 +91,21 @@ export async function POST(request: NextRequest) {
       id: user.id.toString(),
       name: `${user.firstName} ${user.lastName}`,
       email: user.email,
-      role: user.role,
+      role: userRole,
     }, userAgent, ipAddress)
 
-    console.log(`✅ Session created successfully`)
-    return NextResponse.json({ success: true })
+    console.log(`✅ Session created successfully for ${userRole}`)
+    
+    // Return success with user object for proper redirection
+    return NextResponse.json({ 
+      success: true, 
+      user: {
+        id: user.id,
+        name: `${user.firstName} ${user.lastName}`,
+        email: user.email,
+        role: userRole
+      }
+    })
   } catch (error) {
     console.error("❌ Authentication error:", error)
     return NextResponse.json({ 

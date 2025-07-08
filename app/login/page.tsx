@@ -59,23 +59,42 @@ export default function Login() {
       if (response.ok) {
         // Show success animation before redirect
         setTimeout(() => {
-          // Check if there's a redirect parameter
+          // ALWAYS use the role returned from the API, never fall back to UI selection
+          const userRole = data.user?.role
+          
+          console.log(`🎯 Redirecting user with role: ${userRole}`)
+          
+          // Check if there's a redirect parameter for the correct role
           const redirectTo = searchParams.get("redirect")
           
-          if (redirectTo) {
-            // Redirect to the intended destination
-            router.push(redirectTo)
-          } else {
-            // Redirect based on the user's role from the session
-            const userRole = data.user?.role || userType
-            
-            if (userRole === "driver") {
-              router.push("/driver/dashboard")
-            } else if (userRole === "owner") {
-              router.push("/owner/dashboard")
-            } else {
-              router.push("/user/dashboard")
+          if (redirectTo && userRole) {
+            // Only redirect to the intended destination if it matches the user's role
+            if (userRole === "driver" && redirectTo.startsWith("/driver")) {
+              router.push(redirectTo)
+              return
+            } else if (userRole === "owner" && redirectTo.startsWith("/owner")) {
+              router.push(redirectTo)
+              return
+            } else if (userRole === "user" && redirectTo.startsWith("/user")) {
+              router.push(redirectTo)
+              return
             }
+          }
+          
+          // STRICT role-based redirection - drivers ONLY go to driver dashboard
+          if (userRole === "driver") {
+            console.log(`🚌 Redirecting driver to dashboard`)
+            router.push("/driver/dashboard")
+          } else if (userRole === "owner") {
+            console.log(`🏢 Redirecting owner to dashboard`)
+            router.push("/owner/dashboard")
+          } else if (userRole === "user") {
+            console.log(`👤 Redirecting user to dashboard`)
+            router.push("/user/dashboard")
+          } else {
+            console.error(`❌ Unknown user role: ${userRole}`)
+            setError("Unknown user role. Please contact support.")
+            setIsLoading(false)
           }
         }, 1000)
       } else {

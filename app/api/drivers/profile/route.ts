@@ -2,18 +2,26 @@ import { NextRequest, NextResponse } from "next/server"
 import { db } from "@/lib/database"
 import { drivers, vehicles, saccos } from "@/lib/schema"
 import { eq } from "drizzle-orm"
+import { getSession } from "@/lib/auth"
 
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url)
-    const driverEmail = searchParams.get('email')
+    // Get driver email from session instead of query parameters
+    const session = await getSession()
     
-    if (!driverEmail) {
+    if (!session) {
       return NextResponse.json({ 
-        error: "Driver email is required" 
-      }, { status: 400 })
+        error: "Not authenticated" 
+      }, { status: 401 })
     }
-
+    
+    if (session.role !== 'driver') {
+      return NextResponse.json({ 
+        error: "Access denied. Driver role required." 
+      }, { status: 403 })
+    }
+    
+    const driverEmail = session.email
     console.log("🔍 Fetching driver profile for:", driverEmail)
 
     // Get driver data with vehicle relationship
@@ -106,10 +114,7 @@ export async function GET(request: NextRequest) {
     }
 
     console.log("✅ Complete driver profile assembled")
-    return NextResponse.json({ 
-      success: true, 
-      driver: driverProfile 
-    })
+    return NextResponse.json(driverProfile)
 
   } catch (error) {
     console.error("❌ Error fetching driver profile:", error)
