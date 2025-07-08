@@ -433,33 +433,81 @@ export const driverService = {
     return result[0] || null;
   },
 
-  async assignVehicle(driverId: number, vehicleId: number): Promise<Driver | null> {
-    const result = await db.update(drivers)
-      .set({ vehicleId: vehicleId, updatedAt: new Date() })
-      .where(eq(drivers.id, driverId))
-      .returning();
-    return result[0] || null;
-  },
-
-  async getWithVehicleAndSacco(driverId: number): Promise<any> {
-    // Get driver with their assigned vehicle and sacco details
+  async getCurrentAssignment(driverId: number): Promise<any> {
+    // Get driver's current active trip and associated vehicle/route info
     const driver = await this.getById(driverId);
     if (!driver) return null;
 
+    // Find active trip for this driver
+    const activeTrips = await db.select()
+      .from(trips)
+      .where(and(
+        eq(trips.driverId, driverId),
+        eq(trips.status, 'in_progress')
+      ))
+      .limit(1);
+
     let vehicleDetails = null;
     let saccoDetails = null;
+    let routeDetails = null;
 
-    if (driver.vehicleId) {
-      vehicleDetails = await vehicleService.getById(driver.vehicleId);
-      if (vehicleDetails && vehicleDetails.saccoId) {
-        saccoDetails = await saccoService.getById(vehicleDetails.saccoId);
+    if (activeTrips.length > 0) {
+      const trip = activeTrips[0];
+      
+      // Get vehicle details
+      if (trip.vehicleId) {
+        vehicleDetails = await vehicleService.getById(trip.vehicleId);
+        
+        if (vehicleDetails && vehicleDetails.saccoId) {
+          saccoDetails = await saccoService.getById(vehicleDetails.saccoId);
+        }
+      }
+      
+      // Get route details
+      if (trip.routeId) {
+        routeDetails = await routeService.getById(trip.routeId);
       }
     }
 
     return {
       ...driver,
+      currentTrip: activeTrips[0] || null,
       vehicle: vehicleDetails,
-      sacco: saccoDetails
+      sacco: saccoDetails,
+      route: routeDetails
+    };
+  },
+
+  async getDriverRouteInfo(driverId: number): Promise<any> {
+    // Get route information for driver dashboard
+    const assignment = await this.getCurrentAssignment(driverId);
+    if (!assignment || !assignment.route) {
+      return {
+        driver: assignment?.driver || await this.getById(driverId),
+        hasActiveRoute: false,
+        message: "No active route assignment"
+      };
+    }
+
+    return {
+      driver: assignment.driver,
+      hasActiveRoute: true,
+      route: {
+        name: assignment.route.name,
+        startLocation: assignment.route.startLocation,
+        endLocation: assignment.route.endLocation,
+        distance: assignment.route.distance,
+        estimatedTime: assignment.route.estimatedTime,
+        fare: assignment.route.fare
+      },
+      vehicle: {
+        name: assignment.vehicle.name,
+        regNumber: assignment.vehicle.regNumber,
+        capacity: assignment.vehicle.capacity
+      },
+      sacco: {
+        name: assignment.sacco.saccoName
+      }
     };
   }
 }; 
