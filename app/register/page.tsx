@@ -49,7 +49,7 @@ interface Sacco {
   vehicles: Vehicle[]
 }
 
-type UserRole = "user" | "driver" | "owner" | null
+type UserRole = "user" | "owner" | null
 
 export default function Register() {
   const [selectedRole, setSelectedRole] = useState<UserRole>(null)
@@ -67,9 +67,7 @@ export default function Register() {
     email: "",
     phone: "",
     password: "",
-    // Driver specific fields
-    license: "",
-    experience: "",
+
     // Owner specific fields
     companyName: "",
     businessLicense: "",
@@ -198,15 +196,7 @@ export default function Register() {
 
       // Add role-specific data
       switch (selectedRole) {
-        case "driver":
-          payload = {
-            ...payload,
-            license: form.license,
-            experience: form.experience,
-            sacco: selectedSacco,
-            vehicle: selectedVehicle,
-          }
-          break
+
         case "owner":
           payload = {
             ...payload,
@@ -255,8 +245,6 @@ export default function Register() {
       email: "",
       phone: "",
       password: "",
-      license: "",
-      experience: "",
       companyName: "",
       businessLicense: "",
       address: ""
@@ -273,8 +261,6 @@ export default function Register() {
 
   const getIconForRole = (role: string) => {
     switch (role) {
-      case "driver":
-        return <Bus className="h-6 w-6" />
       case "owner":
         return <Shield className="h-6 w-6" />
       default:
@@ -284,8 +270,6 @@ export default function Register() {
 
   const getColorForRole = (role: string) => {
     switch (role) {
-      case "driver":
-        return "from-orange-500 to-orange-600"
       case "owner":
         return "from-green-500 to-green-600"
       default:
@@ -370,38 +354,7 @@ export default function Register() {
                   </CardContent>
                 </Card>
 
-                {/* Driver Registration */}
-                <Card 
-                  className="cursor-pointer hover:shadow-xl transition-all duration-300 border-2 hover:border-orange-500 transform hover:scale-105 bg-white/50 backdrop-blur-sm"
-                  onClick={() => setSelectedRole("driver")}
-                >
-                  <CardContent className="p-8 text-center">
-                    <div className="bg-gradient-to-r from-orange-500 to-orange-600 text-white p-4 rounded-2xl shadow-lg mx-auto mb-6 w-16 h-16 flex items-center justify-center">
-                      <Car className="h-8 w-8" />
-                    </div>
-                    <h3 className="font-bold text-xl mb-3 text-gray-800">Driver</h3>
-                    <p className="text-gray-600 mb-6 leading-relaxed">
-                      Manage your routes, track passengers, and optimize your driving performance
-                    </p>
-                    <div className="space-y-2 text-sm text-gray-500">
-                      <div className="flex items-center gap-2">
-                        <CheckCircle className="w-4 h-4 text-green-500" />
-                        <span>Route management</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <CheckCircle className="w-4 h-4 text-green-500" />
-                        <span>Performance tracking</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <CheckCircle className="w-4 h-4 text-green-500" />
-                        <span>Passenger management</span>
-                      </div>
-                    </div>
-                    <Badge className="bg-orange-100 text-orange-800 mt-4">
-                      Professional
-                    </Badge>
-                  </CardContent>
-                </Card>
+
 
                 {/* Owner Registration */}
                 <Card 
@@ -497,7 +450,7 @@ export default function Register() {
               </div>
             </div>
             <CardTitle className="text-2xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
-              Register as {selectedRole === "user" ? "Passenger" : selectedRole === "driver" ? "Driver" : "Bus Owner"}
+              Register as {selectedRole === "user" ? "Passenger" : "Bus Owner"}
             </CardTitle>
             <p className="text-gray-600">Create your account to get started</p>
           </CardHeader>
@@ -629,98 +582,6 @@ export default function Register() {
               </div>
 
               {/* Role-specific Information */}
-              {selectedRole === "driver" && (
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
-                    <GraduationCap className="w-5 h-5 text-orange-600" />
-                    Driver Information
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="license" className="text-sm font-medium text-gray-700">
-                        License Number
-                      </Label>
-                      <Input
-                        id="license"
-                        name="license"
-                        type="text"
-                        placeholder="Enter your license number"
-                        value={form.license}
-                        onChange={handleFormChange}
-                        className="h-12 px-4 border-gray-200 focus:border-orange-500 focus:ring-orange-500 transition-all duration-300"
-                        required
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="experience" className="text-sm font-medium text-gray-700">
-                        Years of Experience
-                      </Label>
-                      <Input
-                        id="experience"
-                        name="experience"
-                        type="number"
-                        placeholder="Years of experience"
-                        value={form.experience}
-                        onChange={handleFormChange}
-                        className="h-12 px-4 border-gray-200 focus:border-orange-500 focus:ring-orange-500 transition-all duration-300"
-                        required
-                      />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="sacco" className="text-sm font-medium text-gray-700">
-                        Sacco
-                      </Label>
-                      {saccos.length > 0 ? (
-                        <Select value={selectedSacco} onValueChange={setSelectedSacco}>
-                          <SelectTrigger className="h-12 border-gray-200 focus:border-orange-500 focus:ring-orange-500 transition-all duration-300">
-                            <SelectValue placeholder="Select your sacco" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {saccos.map((sacco) => (
-                              <SelectItem key={sacco.saccoName} value={sacco.saccoName}>
-                                {sacco.saccoName}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      ) : (
-                        <div className="h-12 px-4 border border-gray-200 rounded-md flex items-center bg-gray-50">
-                          <span className="text-gray-500 text-sm">
-                            No saccos available. Please contact an administrator.
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="vehicle" className="text-sm font-medium text-gray-700">
-                        Vehicle
-                      </Label>
-                      {availableVehicles.length > 0 ? (
-                        <Select value={selectedVehicle} onValueChange={setSelectedVehicle}>
-                          <SelectTrigger className="h-12 border-gray-200 focus:border-orange-500 focus:ring-orange-500 transition-all duration-300">
-                            <SelectValue placeholder="Select your vehicle" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {availableVehicles.map((vehicle) => (
-                              <SelectItem key={vehicle.regNumber} value={vehicle.regNumber}>
-                                {vehicle.name} ({vehicle.regNumber})
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      ) : (
-                        <div className="h-12 px-4 border border-gray-200 rounded-md flex items-center bg-gray-50">
-                          <span className="text-gray-500 text-sm">
-                            No vehicles available for selected sacco.
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
 
               {selectedRole === "owner" && (
                 <div className="space-y-4">

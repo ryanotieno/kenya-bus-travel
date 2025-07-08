@@ -42,60 +42,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json()
-    const { firstName, lastName, email, phone, password, licenseNumber, licenseExpiry, vehicleRegNumber } = body
 
-    if (!firstName || !lastName || !email || !password || !licenseNumber) {
-      return NextResponse.json({ success: false, error: "Missing required fields" }, { status: 400 })
-    }
-
-    // Check if driver with this email already exists
-    const existingDriver = await driverService.getByEmail(email)
-    if (existingDriver) {
-      return NextResponse.json({ success: false, error: "Driver with this email already exists" }, { status: 400 })
-    }
-
-    // Check if license number already exists
-    const existingLicense = await driverService.getByLicenseNumber(licenseNumber)
-    if (existingLicense) {
-      return NextResponse.json({ success: false, error: "Driver with this license number already exists" }, { status: 400 })
-    }
-
-    // Create the driver
-    const driverData = {
-      firstName,
-      lastName,
-      email,
-      phone,
-      password, // In production, this should be hashed
-      licenseNumber,
-      licenseExpiry: licenseExpiry ? new Date(licenseExpiry) : null,
-      status: 'active' as const,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    }
-
-    const newDriver = await driverService.create(driverData)
-
-    // If vehicle registration number is provided, assign the vehicle
-    if (vehicleRegNumber) {
-      const targetVehicle = await vehicleService.getByRegNumber(vehicleRegNumber)
-      if (!targetVehicle) {
-        return NextResponse.json({ success: false, error: "Vehicle not found" }, { status: 404 })
-      }
-
-      // Assign vehicle to driver
-      await vehicleService.updateDriver(targetVehicle.id, newDriver.id)
-    }
-
-    return NextResponse.json({ success: true, driver: newDriver })
-  } catch (error) {
-    console.error('Error creating driver:', error)
-    return NextResponse.json({ success: false, error: "Failed to create driver" }, { status: 500 })
-  }
-}
 
 export async function PUT(request: NextRequest) {
   try {
