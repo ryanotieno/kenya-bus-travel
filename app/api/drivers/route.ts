@@ -71,10 +71,10 @@ export async function POST(request: NextRequest) {
       phone,
       password, // In production, this should be hashed
       licenseNumber,
-      licenseExpiry,
-      status: 'active',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      licenseExpiry: licenseExpiry ? new Date(licenseExpiry) : null,
+      status: 'active' as const,
+      createdAt: new Date(),
+      updatedAt: new Date()
     }
 
     const newDriver = await driverService.create(driverData)

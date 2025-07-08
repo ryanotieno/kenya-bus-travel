@@ -423,7 +423,7 @@ export const driverService = {
   },
 
   async updateById(id: number, driverData: Partial<Driver>): Promise<Driver | null> {
-    driverData.updatedAt = new Date().toISOString();
+    driverData.updatedAt = new Date();
     const result = await db.update(drivers).set(driverData).where(eq(drivers.id, id)).returning();
     return result[0] || null;
   },
@@ -435,7 +435,7 @@ export const driverService = {
 
   async assignVehicle(driverId: number, vehicleId: number): Promise<Driver | null> {
     const result = await db.update(drivers)
-      .set({ vehicleId: vehicleId, updatedAt: new Date().toISOString() })
+      .set({ vehicleId: vehicleId, updatedAt: new Date() })
       .where(eq(drivers.id, driverId))
       .returning();
     return result[0] || null;
