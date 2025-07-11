@@ -2,13 +2,14 @@
 
 import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { 
   Users, 
   Building2, 
+  Bus,
   MapPin, 
   CheckCircle, 
-  UserPlus
+  LogIn
 } from "lucide-react"
 import Link from "next/link"
 
@@ -52,58 +53,90 @@ export default function Home() {
           <CardHeader className="text-center pb-8">
             <div className="flex justify-center mb-4">
               <div className="bg-gradient-to-r from-blue-500 to-purple-600 text-white p-4 rounded-2xl shadow-lg">
-                <UserPlus className="h-8 w-8" />
+                <LogIn className="h-8 w-8" />
               </div>
             </div>
             <CardTitle className="text-3xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
-              Join Kenya Bus Tracker
+              Welcome to Kenya Bus Tracker
             </CardTitle>
-            <p className="text-gray-600 mt-2">Choose how you want to use our platform</p>
+            <p className="text-gray-600 mt-2">Sign in to your account to continue</p>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div className="grid gap-6 md:grid-cols-2">
-              {/* User Registration */}
-              <Link href="/register?role=user">
+            <div className="grid gap-6 md:grid-cols-3">
+              {/* User Login */}
+              <Link href="/login?type=user">
                 <Card className="cursor-pointer hover:shadow-xl transition-all duration-300 border-2 hover:border-blue-500 transform hover:scale-105 bg-white/50 backdrop-blur-sm h-full">
                   <CardContent className="p-8 text-center">
                     <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white p-4 rounded-2xl shadow-lg mx-auto mb-6 w-16 h-16 flex items-center justify-center">
                       <Users className="h-8 w-8" />
                     </div>
-                    <h3 className="font-bold text-xl mb-3 text-gray-800">Passenger</h3>
+                    <h3 className="font-bold text-xl mb-3 text-gray-800">Passenger Login</h3>
                     <p className="text-gray-600 mb-6 leading-relaxed">
-                      Book tickets, track buses in real-time, and manage your travel experience
+                      Access your account to book tickets and track buses in real-time
                     </p>
                     <div className="space-y-2 text-sm text-gray-500">
                       <div className="flex items-center gap-2">
                         <CheckCircle className="w-4 h-4 text-green-500" />
-                        <span>Real-time bus tracking</span>
+                        <span>Track live bus locations</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <CheckCircle className="w-4 h-4 text-green-500" />
-                        <span>Easy ticket booking</span>
+                        <span>Book and manage tickets</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <CheckCircle className="w-4 h-4 text-green-500" />
-                        <span>Route planning</span>
+                        <span>Plan your routes</span>
                       </div>
                     </div>
-                    <Badge className="bg-blue-100 text-blue-800 mt-4">
-                      Most Popular
-                    </Badge>
+                    <Button className="w-full mt-4 bg-blue-600 hover:bg-blue-700">
+                      Sign In
+                    </Button>
                   </CardContent>
                 </Card>
               </Link>
 
-              {/* Owner Registration */}
-              <Link href="/register?role=owner">
+              {/* Driver Login */}
+              <Link href="/login?type=driver">
+                <Card className="cursor-pointer hover:shadow-xl transition-all duration-300 border-2 hover:border-orange-500 transform hover:scale-105 bg-white/50 backdrop-blur-sm h-full">
+                  <CardContent className="p-8 text-center">
+                    <div className="bg-gradient-to-r from-orange-500 to-orange-600 text-white p-4 rounded-2xl shadow-lg mx-auto mb-6 w-16 h-16 flex items-center justify-center">
+                      <Bus className="h-8 w-8" />
+                    </div>
+                    <h3 className="font-bold text-xl mb-3 text-gray-800">Driver Login</h3>
+                    <p className="text-gray-600 mb-6 leading-relaxed">
+                      Access your driver dashboard to manage trips and scan tickets
+                    </p>
+                    <div className="space-y-2 text-sm text-gray-500">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="w-4 h-4 text-green-500" />
+                        <span>Manage daily trips</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="w-4 h-4 text-green-500" />
+                        <span>Scan passenger tickets</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="w-4 h-4 text-green-500" />
+                        <span>Track performance</span>
+                      </div>
+                    </div>
+                    <Button className="w-full mt-4 bg-orange-600 hover:bg-orange-700">
+                      Sign In
+                    </Button>
+                  </CardContent>
+                </Card>
+              </Link>
+
+              {/* Owner Login */}
+              <Link href="/login?type=owner">
                 <Card className="cursor-pointer hover:shadow-xl transition-all duration-300 border-2 hover:border-green-500 transform hover:scale-105 bg-white/50 backdrop-blur-sm h-full">
                   <CardContent className="p-8 text-center">
                     <div className="bg-gradient-to-r from-green-500 to-green-600 text-white p-4 rounded-2xl shadow-lg mx-auto mb-6 w-16 h-16 flex items-center justify-center">
                       <Building2 className="h-8 w-8" />
                     </div>
-                    <h3 className="font-bold text-xl mb-3 text-gray-800">Bus Owner</h3>
+                    <h3 className="font-bold text-xl mb-3 text-gray-800">Bus Owner Login</h3>
                     <p className="text-gray-600 mb-6 leading-relaxed">
-                      Manage your fleet, monitor operations, and grow your transportation business
+                      Manage your fleet operations and monitor business performance
                     </p>
                     <div className="space-y-2 text-sm text-gray-500">
                       <div className="flex items-center gap-2">
@@ -112,16 +145,16 @@ export default function Home() {
                       </div>
                       <div className="flex items-center gap-2">
                         <CheckCircle className="w-4 h-4 text-green-500" />
-                        <span>Business analytics</span>
+                        <span>Revenue analytics</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <CheckCircle className="w-4 h-4 text-green-500" />
-                        <span>Revenue tracking</span>
+                        <span>Driver oversight</span>
                       </div>
                     </div>
-                    <Badge className="bg-green-100 text-green-800 mt-4">
-                      Business
-                    </Badge>
+                    <Button className="w-full mt-4 bg-green-600 hover:bg-green-700">
+                      Sign In
+                    </Button>
                   </CardContent>
                 </Card>
               </Link>
@@ -129,9 +162,9 @@ export default function Home() {
 
             <div className="text-center pt-6 border-t border-gray-200">
               <p className="text-gray-600">
-                Already have an account?{" "}
-                <Link href="/login" className="text-blue-600 hover:text-blue-800 hover:underline font-medium transition-colors">
-                  Sign in here
+                Don't have an account?{" "}
+                <Link href="/register" className="text-blue-600 hover:text-blue-800 hover:underline font-medium transition-colors">
+                  Register here
                 </Link>
               </p>
             </div>
