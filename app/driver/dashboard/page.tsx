@@ -23,6 +23,7 @@ import {
   Award,
   Target
 } from "lucide-react"
+import { QrReader } from "react-qr-reader";
 
 interface DriverProfile {
   id: number
@@ -54,6 +55,10 @@ export default function DriverDashboard() {
   const [loading, setLoading] = useState(true)
   const [animateCards, setAnimateCards] = useState(false)
   const [currentTime, setCurrentTime] = useState(new Date())
+  const [scanModal, setScanModal] = useState(false);
+  const [scannedTicket, setScannedTicket] = useState<any>(null);
+  const [scanError, setScanError] = useState<string | null>(null);
+  const [scanning, setScanning] = useState(false);
 
   // Performance metrics (mock data)
   const performanceMetrics = {
@@ -64,6 +69,33 @@ export default function DriverDashboard() {
     fuelEfficiency: 12.5,
     passengersSatisfaction: 96
   }
+
+  const handleScan = async (data: string | null) => {
+    if (data && !scanning) {
+      setScanning(true);
+      setScanError(null);
+      // Fetch ticket details from API
+      try {
+        const res = await fetch(`/api/tickets/scan?code=${encodeURIComponent(data)}`);
+        const json = await res.json();
+        if (json.ticket) {
+          setScannedTicket(json.ticket);
+          setScanModal(false);
+        } else {
+          setScannedTicket(null);
+          setScanError(json.error || "Ticket not found");
+        }
+      } catch (err) {
+        setScanError("Failed to fetch ticket details");
+      } finally {
+        setScanning(false);
+      }
+    }
+  };
+
+  const handleError = (err: any) => {
+    setScanError("QR scan error: " + (err?.message || err));
+  };
 
   useEffect(() => {
     // Fetch real driver profile data
@@ -451,6 +483,69 @@ export default function DriverDashboard() {
         </div>
 
       </div>
+      {/* Floating Scan QR Button */}
+      <button
+        className="fixed bottom-8 right-8 z-50 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg p-5 flex items-center justify-center text-2xl"
+        onClick={() => setScanModal(true)}
+        title="Scan Ticket QR"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-8 h-8">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 9V5.25A2.25 2.25 0 016 3h3.75M14.25 3H18a2.25 2.25 0 012.25 2.25V9m0 6v3.75A2.25 2.25 0 0118 21h-3.75M9.75 21H6a2.25 2.25 0 01-2.25-2.25V15" />
+        </svg>
+      </button>
+      {/* QR Scanner Modal */}
+      {scanModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-8 max-w-md w-full relative">
+            <button className="absolute top-2 right-2 text-gray-400 hover:text-gray-600" onClick={() => setScanModal(false)}>×</button>
+            <h2 className="text-xl font-bold mb-4">Scan Ticket QR Code</h2>
+            <div style={{ width: 350, height: 350, margin: "0 auto", background: "#000", borderRadius: 12, overflow: "hidden", border: "2px solid #eee" }}>
+              <QrReader
+                constraints={{ facingMode: "environment" }}
+                onResult={(result, error) => {
+                  if (!!result) handleScan(result.getText());
+                  if (!!error) handleError(error);
+                }}
+                videoContainerStyle={{
+                  width: "100%",
+                  height: "100%",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center"
+                }}
+                videoStyle={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover"
+                }}
+              />
+            </div>
+            <div className="text-xs text-gray-500 mt-2">If you don't see the camera preview, check your browser permissions.</div>
+            {scanError && <div className="text-red-600 mt-2">{scanError}</div>}
+          </div>
+        </div>
+      )}
+      {/* Ticket Details Modal */}
+      {scannedTicket && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-8 max-w-md w-full relative">
+            <button className="absolute top-2 right-2 text-gray-400 hover:text-gray-600" onClick={() => { setScannedTicket(null); setScanning(false); }}>×</button>
+            <h2 className="text-xl font-bold mb-4">Ticket Details</h2>
+            <div className="space-y-2">
+              <div><b>From:</b> {scannedTicket.from_stop}</div>
+              <div><b>To:</b> {scannedTicket.to_stop}</div>
+              <div><b>Status:</b> {scannedTicket.status}</div>
+              <div><b>Fare:</b> KES {scannedTicket.fare}</div>
+              <div><b>Booked At:</b> {scannedTicket.booked_at}</div>
+              <div><b>Ticket ID:</b> {scannedTicket.id}</div>
+              <div><b>QR Code:</b> {scannedTicket.qr_code}</div>
+            </div>
+            <div className="mt-6 flex justify-end gap-2">
+              <button className="btn btn-secondary" onClick={() => { setScannedTicket(null); setScanning(false); }}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 } 

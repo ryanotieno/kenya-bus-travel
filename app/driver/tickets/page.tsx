@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Printer, Search } from "lucide-react"
+import { QrReader } from "react-qr-reader";
 
 interface Ticket {
   id: string
@@ -25,6 +26,9 @@ export default function PrintTickets() {
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedTickets, setSelectedTickets] = useState<string[]>([])
   const [tickets, setTickets] = useState<Ticket[]>([])
+  const [scanModal, setScanModal] = useState(false);
+  const [scannedTicket, setScannedTicket] = useState<any>(null);
+  const [scanError, setScanError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchSessionAndData = async () => {
@@ -119,6 +123,30 @@ export default function PrintTickets() {
     alert(`Printing tickets: ${selectedTickets.join(", ")}`)
   }
 
+  const handleScan = async (data: string | null) => {
+    if (data) {
+      setScanError(null);
+      setScanModal(false);
+      // Fetch ticket details from API
+      try {
+        const res = await fetch(`/api/tickets/scan?code=${encodeURIComponent(data)}`);
+        const json = await res.json();
+        if (json.ticket) {
+          setScannedTicket(json.ticket);
+        } else {
+          setScannedTicket(null);
+          setScanError(json.error || "Ticket not found");
+        }
+      } catch (err) {
+        setScanError("Failed to fetch ticket details");
+      }
+    }
+  };
+
+  const handleError = (err: any) => {
+    setScanError("QR scan error: " + (err?.message || err));
+  };
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -150,9 +178,14 @@ export default function PrintTickets() {
 
         <main className="flex-1 p-6">
           <div className="max-w-5xl mx-auto space-y-6">
-            <div>
-              <h1 className="text-2xl font-bold">Print Tickets</h1>
-              <p className="text-muted-foreground">Search and print tickets for passengers</p>
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-2xl font-bold">Print Tickets</h1>
+                <p className="text-muted-foreground">Search and print tickets for passengers</p>
+              </div>
+              <Button onClick={() => setScanModal(true)} variant="default">
+                Scan Ticket QR
+              </Button>
             </div>
 
             <Card>
@@ -313,6 +346,46 @@ export default function PrintTickets() {
                 </div>
               </CardContent>
             </Card>
+            {/* QR Scanner Modal */}
+            {scanModal && (
+              <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+                <div className="bg-white rounded-lg p-8 max-w-md w-full relative">
+                  <button className="absolute top-2 right-2 text-gray-400 hover:text-gray-600" onClick={() => setScanModal(false)}>×</button>
+                  <h2 className="text-xl font-bold mb-4">Scan Ticket QR Code</h2>
+                  <div style={{ width: "100%" }}>
+                    <QrReader
+                      constraints={{ facingMode: "environment" }}
+                      onResult={(result, error) => {
+                        if (!!result) handleScan(result.getText());
+                        if (!!error) handleError(error);
+                      }}
+                    />
+                  </div>
+                  {scanError && <div className="text-red-600 mt-2">{scanError}</div>}
+                </div>
+              </div>
+            )}
+            {/* Ticket Details Modal */}
+            {scannedTicket && (
+              <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+                <div className="bg-white rounded-lg p-8 max-w-md w-full relative">
+                  <button className="absolute top-2 right-2 text-gray-400 hover:text-gray-600" onClick={() => setScannedTicket(null)}>×</button>
+                  <h2 className="text-xl font-bold mb-4">Ticket Details</h2>
+                  <div className="space-y-2">
+                    <div><b>From:</b> {scannedTicket.from_stop}</div>
+                    <div><b>To:</b> {scannedTicket.to_stop}</div>
+                    <div><b>Status:</b> {scannedTicket.status}</div>
+                    <div><b>Fare:</b> KES {scannedTicket.fare}</div>
+                    <div><b>Booked At:</b> {scannedTicket.booked_at}</div>
+                    <div><b>Ticket ID:</b> {scannedTicket.id}</div>
+                    <div><b>QR Code:</b> {scannedTicket.qr_code}</div>
+                  </div>
+                  <div className="mt-6 flex justify-end gap-2">
+                    <button className="btn btn-secondary" onClick={() => setScannedTicket(null)}>Close</button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </main>
       </div>
