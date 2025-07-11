@@ -355,7 +355,7 @@ export default function PrintTickets() {
                   <div style={{ width: "100%" }}>
                     <QrReader
                       constraints={{ facingMode: "environment" }}
-                      onResult={(result, error) => {
+                      onResult={(result: any, error: any) => {
                         if (!!result) handleScan(result.getText());
                         if (!!error) handleError(error);
                       }}

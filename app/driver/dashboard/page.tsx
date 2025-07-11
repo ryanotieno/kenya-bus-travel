@@ -502,7 +502,7 @@ export default function DriverDashboard() {
             <div style={{ width: 350, height: 350, margin: "0 auto", background: "#000", borderRadius: 12, overflow: "hidden", border: "2px solid #eee" }}>
               <QrReader
                 constraints={{ facingMode: "environment" }}
-                onResult={(result, error) => {
+                onResult={(result: any, error: any) => {
                   if (!!result) handleScan(result.getText());
                   if (!!error) handleError(error);
                 }}
