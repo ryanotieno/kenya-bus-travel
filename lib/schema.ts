@@ -136,6 +136,7 @@ export const tickets = pgTable('tickets', {
   usedAt: timestamp('used_at'),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
+  qrCode: text('qr_code').unique(), // <-- Add this line
 });
 
 // Vehicle locations table (for real-time tracking)
